@@ -93,7 +93,7 @@ namespace gpumon {
             if (!state.initialized) return;
 
             // 1. Log Scope Begin with initial snapshot
-            auto snapshots = backend::get_device_snapshots();
+            const auto snapshots = backend::get_device_snapshots();
             logScopeEvent(LogCategory::Scope, "scope_begin", tsStart_, snapshots);
             // 2. Start Background Sampler (if configured)
             if (state.sampleIntervalMs > 0) {
@@ -139,7 +139,7 @@ namespace gpumon {
         // Helper to format and write the JSON
         void logScopeEvent(const LogCategory category, const char* type, const int64_t timestamp,
                       const std::vector<detail::DeviceSnapshot>& snapshots,
-                      const int64_t startTime = 0) {
+                      const int64_t startTime = 0) const {
 
             const auto& state = detail::getState();
             std::ostringstream oss;
@@ -173,7 +173,7 @@ namespace gpumon {
                 if (stopSampling_) break;
                 auto snapshots = backend::get_device_snapshots();
 
-                int64_t now = detail::getTimestampNs();
+                const int64_t now = detail::getTimestampNs();
 
                 logScopeEvent(LogCategory::Scope, "scope_sample", now, snapshots);
             }

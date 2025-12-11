@@ -37,8 +37,8 @@ namespace gpumon {
         struct DeviceStaticInfo {
             std::string name;
             std::string uuid;
-            int pciBusId;
-            size_t totalMiB;
+            int pciBusId{};
+            size_t totalMiB{};
         };
 
         // Helper to get static info (cached)
@@ -49,7 +49,7 @@ namespace gpumon {
             std::lock_guard<std::mutex> lock(cacheMutex);
             if (cache.find(devId) == cache.end()) {
                 // Not in cache, query driver
-                cudaDeviceProp p;
+                cudaDeviceProp p{};
                 if (cudaGetDeviceProperties(&p, devId) == cudaSuccess) {
                     cache[devId] = {
                         p.name,
@@ -115,42 +115,30 @@ namespace gpumon {
             }
 #else
             {
-                int deviceCount = 0;
-                if (cudaError_t err = cudaGetDeviceCount(&deviceCount); err != cudaSuccess || deviceCount == 0) return snapshots;
+                int currentDev = 0;
+                // Only query the currently active device context.
+                if (cudaGetDevice(&currentDev) != cudaSuccess) return snapshots;
 
-                // Save current device to restore later (polite behavior)
-                int currentDevice = -1;
-                cudaGetDevice(&currentDevice);
+                size_t free = 0, total = 0;
+                // cudaMemGetInfo is context-sensitive but much lighter than switching contexts
+                if (cudaMemGetInfo(&free, &total) == cudaSuccess) {
 
-                for (int i = 0; i < deviceCount; ++i) {
-                    cudaSetDevice(i);
+                    detail::DeviceSnapshot snap;
+                    snap.deviceId = currentDev;
 
-                    // 1. Get Dynamic Data (Memory)
-                    size_t free = 0, total = 0;
-                    if (cudaMemGetInfo(&free, &total) == cudaSuccess) {
-                        cudaSetDevice(i); // This creates/activates context
+                    // Identity (Cached)
+                    auto staticInfo = get_cached_static_info(currentDev);
+                    snap.name = staticInfo.name;
+                    snap.uuid = staticInfo.uuid;
+                    snap.pciBusId = staticInfo.pciBusId;
 
-                        detail::DeviceSnapshot snap;
-                        snap.deviceId = i;
+                    // Memory
+                    snap.freeMiB = free / (1024 * 1024);
+                    snap.totalMiB = total / (1024 * 1024);
+                    snap.usedMiB = snap.totalMiB - snap.freeMiB;
 
-                        // Identity (Cached via CUDA Props)
-                        auto staticInfo = get_cached_static_info(i);
-                        snap.name = staticInfo.name;
-                        snap.uuid = staticInfo.uuid;
-                        snap.pciBusId = staticInfo.pciBusId;
-
-                        // Memory (Context-aware)
-                        size_t free = 0, total = 0;
-                        if (cudaMemGetInfo(&free, &total) == cudaSuccess) {
-                            snap.freeMiB = free / (1024 * 1024);
-                            snap.totalMiB = total / (1024 * 1024);
-                            snap.usedMiB = snap.totalMiB - snap.freeMiB;
-                        }
-
-                        snapshots.push_back(snap);
-                    }
+                    snapshots.push_back(snap);
                 }
-                if (currentDevice >= 0) cudaSetDevice(currentDevice);
                 return snapshots;
             }
 #endif
