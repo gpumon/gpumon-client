@@ -1,4 +1,4 @@
-import gpumon
+import gpufl as gfl
 import os
 import json
 import time
@@ -6,7 +6,7 @@ import tempfile
 import shutil
 
 def test_pipeline():
-    print("--- Starting GPUMON Pipeline Verification ---")
+    print("--- Starting GPUFL Pipeline Verification ---")
 
     # 1. Setup a temporary directory for logs
     # We use a temp dir to ensure we don't pollute the CI runner
@@ -16,14 +16,14 @@ def test_pipeline():
     print(f"1. Log path set to: {log_base}")
 
     try:
-        # 2. Initialize GPUMON
+        # 2. Initialize GPUFL
         # We pass the base path. Expectation: ci_test.scope.log, ci_test.kernel.log, etc.
-        print("2. Initializing GPUMON...")
-        gpumon.init("CI_Test_App", log_base, 0) # 0 interval = no background sampler (simpler for CI)
+        print("2. Initializing GPUFL...")
+        gfl.init("CI_Test_App", log_base, 0) # 0 interval = no background sampler (simpler for CI)
 
         # 3. Trigger a Scope (This writes to .scope.log)
         print("3. Running Scope...")
-        with gpumon.Scope("ci_scope_01", "test_tag"):
+        with gfl.Scope("ci_scope_01", "test_tag"):
             # Simulate 'work' (just time passing)
             time.sleep(0.1)
             x = 0
@@ -31,7 +31,7 @@ def test_pipeline():
 
         # 4. Shutdown (Flushes logs)
         print("4. Shutting down...")
-        gpumon.shutdown()
+        gfl.shutdown()
 
         # 5. Verify Files Exist
         print("5. Verifying Log Files...")
@@ -77,7 +77,7 @@ def test_pipeline():
                     print(f"FAILED: Invalid JSON line: {line}")
                     exit(1)
 
-        print("\nSUCCESS: GPUMON Python Bindings are working correctly.")
+        print("\nSUCCESS: GPUFL Python Bindings are working correctly.")
 
     finally:
         # Cleanup

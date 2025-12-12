@@ -1,5 +1,5 @@
 #include <pybind11/pybind11.h>
-#include "gpumon/gpumon.hpp"
+#include "gpufl/gpufl.hpp"
 
 namespace py = pybind11;
 
@@ -8,7 +8,7 @@ public:
     PyScope(std::string name, std::string tag) : name_(name), tag_(tag) {}
 
     void enter() {
-        monitor_ = std::make_unique<gpumon::ScopedMonitor>(name_, tag_);
+        monitor_ = std::make_unique<gpufl::ScopedMonitor>(name_, tag_);
     }
 
     void exit(py::object exc_type, py::object exc_value, py::object traceback) {
@@ -18,23 +18,23 @@ public:
 private:
     std::string name_;
     std::string tag_;
-    std::unique_ptr<gpumon::ScopedMonitor> monitor_;
+    std::unique_ptr<gpufl::ScopedMonitor> monitor_;
 };
 
-PYBIND11_MODULE(_gpumon_client, m) {
-    m.doc() = "GPUMON Internal C++ Binding";
+PYBIND11_MODULE(_gpufl_client, m) {
+    m.doc() = "GPUFL Internal C++ Binding";
 
     m.def("init", [](std::string app_name, std::string log_path, int interval_ms) {
-        gpumon::InitOptions opts;
+        gpufl::InitOptions opts;
         opts.appName = app_name;
         opts.logPath = log_path;
         opts.sampleIntervalMs = interval_ms;
         // Optional: Expose max file size to Python init if you want customizable rolling
         // opts.maxFileSizeBytes = 2 * 1024 * 1024;
-        return gpumon::init(opts);
+        return gpufl::init(opts);
     }, py::arg("app_name"), py::arg("log_path") = "", py::arg("interval_ms") = 0);
 
-    m.def("shutdown", &gpumon::shutdown);
+    m.def("shutdown", &gpufl::shutdown);
 
     // --- ADDED THIS SECTION ---
     m.def("log_kernel", [](std::string name,
@@ -49,7 +49,7 @@ PYBIND11_MODULE(_gpumon_client, m) {
         // Empty attributes (Python doesn't have access to this low-level info)
         cudaFuncAttributes attrs = {};
 
-        gpumon::detail::logKernelEvent(name, start_ns, end_ns, grid, block, 0, "Success", attrs);
+        gpufl::detail::logKernelEvent(name, start_ns, end_ns, grid, block, 0, "Success", attrs);
 
     }, py::arg("name"),
        py::arg("gx"), py::arg("gy"), py::arg("gz"),

@@ -1,5 +1,5 @@
 import time
-import gpumon
+import gpufl as gfl
 import sys
 
 try:
@@ -9,7 +9,7 @@ except ImportError:
     HAS_NUMBA = False
 def launch_kernel(kernel_func, grid, block, *args):
     """
-    Python equivalent of GPUMON_LAUNCH.
+    Python equivalent of GFL_LAUNCH.
     Executes kernel, syncs, and logs the specific kernel duration.
     """
     if not HAS_NUMBA:
@@ -32,4 +32,4 @@ def launch_kernel(kernel_func, grid, block, *args):
     gx, gy, gz = (grid + (1, 1))[:3] if isinstance(grid, tuple) else (grid, 1, 1)
     bx, by, bz = (block + (1, 1))[:3] if isinstance(block, tuple) else (block, 1, 1)
 
-    gpumon.log_kernel(kernel_func.__name__, gx, gy, gz, bx, by, bz, start_ns, end_ns)
+    gfl.log_kernel(kernel_func.__name__, gx, gy, gz, bx, by, bz, start_ns, end_ns)

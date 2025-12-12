@@ -1,11 +1,11 @@
-#ifndef GPUMON_MONITOR_HPP
-#define GPUMON_MONITOR_HPP
+#ifndef GPUFL_MONITOR_HPP
+#define GPUFL_MONITOR_HPP
 #include "common.hpp"
 #include <thread>
 #include <functional>
 #include <utility>
 
-namespace gpumon {
+namespace gpufl {
     // ============================================================================
     // Public Management API
     // ============================================================================
@@ -27,7 +27,7 @@ namespace gpumon {
 
         std::string basePath = opts.logPath;
         if (basePath.empty()) {
-            basePath = "gpumon"; // Fallback to local CWD file if user provided nothing
+            basePath = "gpufl"; // Fallback to local CWD file if user provided nothing
         }
 
 
@@ -35,7 +35,7 @@ namespace gpumon {
             state.logFiles[cat].basePath = basePath + "." + suffix;
             detail::rotateFile(state.logFiles[cat]);
             if (!state.logFiles[cat].stream.is_open()) {
-                fprintf(stderr, "[GPUMON] ERROR: Failed to open log file: %s.log\n", state.logFiles[cat].basePath.c_str());
+                fprintf(stderr, "[GFL] ERROR: Failed to open log file: %s.log\n", state.logFiles[cat].basePath.c_str());
             }
         };
 
@@ -136,6 +136,7 @@ namespace gpumon {
         std::string name_;
         std::string tag_;
         int64_t tsStart_;
+        int targetDeviceId_ = 0;
 
         std::atomic<bool> stopSampling_;
         std::thread samplerThread_;
@@ -171,7 +172,8 @@ namespace gpumon {
             detail::writeLogLine(category, oss.str());
         }
 
-        void samplingLoop(uint32_t intervalMs) {
+        void samplingLoop(const uint32_t intervalMs) const {
+            cudaSetDevice(targetDeviceId_);
             while (!stopSampling_) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
                 if (stopSampling_) break;
@@ -246,13 +248,14 @@ namespace gpumon {
 // Macros
 // ============================================================================
 
-#define GPUMON_SCOPE(name) \
-if (gpumon::ScopedMonitor _gpumon_scope{name}; true)
 
-#define GPUMON_SCOPE_TAGGED(name, tag) \
-if (gpumon::ScopedMonitor _gpumon_scope{name, tag}; true)
+#define GFL_SCOPE(name) \
+if (gpufl::ScopedMonitor _gpufl_scope{name}; true)
+
+#define GFL_SCOPE_TAGGED(name, tag) \
+if (gpufl::ScopedMonitor _gpufl_scope{name, tag}; true)
 #endif
 
-#define GPUMON_SYSTEM_START(interval) \
-gpumon::SystemMonitor _sys_mon{interval}; \
+#define GFL_SYSTEM_START(interval) \
+gpufl::SystemMonitor _sys_mon{interval}; \
 while(true) { std::this_thread::sleep_for(std::chrono::seconds(1)); }

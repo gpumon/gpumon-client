@@ -1,4 +1,4 @@
-#include <gpumon/gpumon.hpp>
+#include <gpufl/gpufl.hpp>
 #include <iostream>
 #include <cuda_runtime.h>
 
@@ -27,18 +27,18 @@ void vectorScale(int* a, int scale, int n) {
 }
 
 int main() {
-    // Initialize GPUmon
-    gpumon::InitOptions opts;
+    // Initialize GFL
+    gpufl::InitOptions opts;
     opts.appName = "block_style_demo";
-    opts.logPath = "gpumon_block.log";
+    opts.logPath = "gfl_block.log";
     opts.sampleIntervalMs = 5;
     
-    if (!gpumon::init(opts)) {
-        std::cerr << "Failed to initialize gpumon" << std::endl;
+    if (!gpufl::init(opts)) {
+        std::cerr << "Failed to initialize gpufl" << std::endl;
         return 1;
     }
     
-    std::cout << "=== GPUmon Block-Style API Demo ===" << std::endl;
+    std::cout << "=== GPUFl Block-Style API Demo ===" << std::endl;
     std::cout << "Logs: " << opts.logPath << "\n" << std::endl;
     
     const int n = 1024;
@@ -65,11 +65,11 @@ int main() {
     dim3 block(256);
     
     // ========================================================================
-    // GPUMON_SCOPE - Block-style (most like Scala)
+    // GFL_SCOPE - Block-style (most like Scala)
     // ========================================================================
-    std::cout << "Using GPUMON_SCOPE (block-style)..." << std::endl;
+    std::cout << "Using GFL_SCOPE (block-style)..." << std::endl;
     
-    GPUMON_SCOPE("computation-phase-1") {
+    GFL_SCOPE("computation-phase-1") {
         // You can have multiple kernel launches inside the scope
         vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
         cudaDeviceSynchronize();
@@ -87,7 +87,7 @@ int main() {
     std::cout << "Using ScopedMonitor (RAII object)..." << std::endl;
     
     {
-        gpumon::ScopedMonitor monitor("training-epoch-1");
+        gpufl::ScopedMonitor monitor("training-epoch-1");
         
         vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
         cudaDeviceSynchronize();
@@ -105,7 +105,7 @@ int main() {
     // ========================================================================
     std::cout << "4. Using monitor() lambda wrapper..." << std::endl;
     
-    gpumon::monitor("functional-style", [&]() {
+    gpufl::monitor("functional-style", [&]() {
         vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
         cudaDeviceSynchronize();
     });
@@ -113,11 +113,11 @@ int main() {
     std::cout << "   ✓ Lambda executed and monitored\n" << std::endl;
     
     // ========================================================================
-    // Method 5: Traditional GPUMON_LAUNCH (auto-sync, auto-time)
+    // Method 5: Traditional GFL_LAUNCH (auto-sync, auto-time)
     // ========================================================================
-    std::cout << "5. Using GPUMON_LAUNCH (traditional)..." << std::endl;
+    std::cout << "5. Using GFL_LAUNCH (traditional)..." << std::endl;
     
-    GPUMON_LAUNCH(vectorAdd, grid, block, 0, 0, d_a, d_b, d_c, n);
+    GFL_LAUNCH(vectorAdd, grid, block, 0, 0, d_a, d_b, d_c, n);
     
     std::cout << "   ✓ Kernel launched with automatic timing\n" << std::endl;
     
@@ -126,11 +126,11 @@ int main() {
     // ========================================================================
     std::cout << "6. Using nested scopes..." << std::endl;
     
-    GPUMON_SCOPE("outer-scope") {
+    GFL_SCOPE("outer-scope") {
         vectorScale<<<grid, block>>>(d_a, 3, n);
         cudaDeviceSynchronize();
         
-        GPUMON_SCOPE("inner-scope") {
+        GFL_SCOPE("inner-scope") {
             vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
             cudaDeviceSynchronize();
         }
@@ -150,7 +150,7 @@ int main() {
     cudaFree(d_b);
     cudaFree(d_c);
     
-    gpumon::shutdown();
+    gpufl::shutdown();
     
     std::cout << "\n=== Demo Complete ===" << std::endl;
     std::cout << "Check " << opts.logPath << " for detailed logs" << std::endl;

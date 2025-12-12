@@ -1,4 +1,4 @@
-import gpumon
+import gpufl as gfl
 import numpy as np
 from numba import cuda
 import math
@@ -19,10 +19,10 @@ def matmul_kernel(A, B, C):
         C[row, col] = tmp
 
 def run_benchmark():
-    # --- 2. Initialize GPUMON ---
+    # --- 2. Initialize GPUFL ---
     # We enable the background sampler (10ms) to catch VRAM/Power usage during the heavy compute
-    print("[GPUMON] Initializing...")
-    gpumon.init("Numba_App", "./gpumon_logs", 10)
+    print("[GPUFL] Initializing...")
+    gfl.init("Numba_App", "./gfl_logs", 10)
 
     try:
         # --- 3. Setup Data (Heavy Load) ---
@@ -36,7 +36,7 @@ def run_benchmark():
 
         # Device memory (VRAM allocation)
         # We wrap this in a scope to see memory usage spike!
-        with gpumon.Scope("allocation_phase", "setup"):
+        with gfl.Scope("allocation_phase", "setup"):
             d_A = cuda.to_device(A_h)
             d_B = cuda.to_device(B_h)
             d_C = cuda.to_device(C_h)
@@ -51,14 +51,14 @@ def run_benchmark():
 
         # --- 4. Profile the Compute Phase ---
         # This Scope will measure exactly how long the GPU was busy
-        with gpumon.Scope("matrix_mul_compute", "math"):
+        with gfl.Scope("matrix_mul_compute", "math"):
 
             # Launch kernel 10 times to simulate a "Training Step"
             for i in range(10):
                 matmul_kernel[blockspergrid, threadsperblock](d_A, d_B, d_C)
 
             # CRITICAL: Numba calls are async.
-            # gpumon.Scope automatically calls cudaDeviceSynchronize() on exit,
+            # gfl.Scope automatically calls cudaDeviceSynchronize() on exit,
             # ensuring we capture the TRUE execution time, not just the launch time.
 
         # Retrieve result
@@ -67,8 +67,8 @@ def run_benchmark():
 
     finally:
         # --- 5. Cleanup ---
-        print("[GPUMON] Shutting down...")
-        gpumon.shutdown()
+        print("[GPUFL] Shutting down...")
+        gfl.shutdown()
 
 if __name__ == "__main__":
     if cuda.is_available():

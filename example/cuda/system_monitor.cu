@@ -1,21 +1,21 @@
-#include <gpumon/gpumon.hpp>
+#include <gpufl/gpufl.hpp>
 #include <thread>
 #include <chrono>
 #include <iostream>
 
 int main(int argc, char** argv) {
     // 1. Configure for System Monitoring
-    gpumon::InitOptions opts;
+    gpufl::InitOptions opts;
     opts.appName = "SystemMonitor";
 
     // Optional: Set a specific log path or let it default
-    opts.logPath = "gpumon_system.log";
+    opts.logPath = "gpufl_system.log";
 
-    gpumon::init(opts);
+    gpufl::init(opts);
 
     std::cout << "Starting GPU System Monitor (Ctrl+C to stop)..." << std::endl;
-    GPUMON_SYSTEM_START(1000);
+    GFL_SYSTEM_START(1000);
 
-    gpumon::shutdown();
+    gpufl::shutdown();
     return 0;
 }

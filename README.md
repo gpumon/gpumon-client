@@ -1,16 +1,6 @@
-# GPUmon Client Library (multi-header)
+# GPUFL Client Library (multi-header)
 
 Header-only C++ instrumentation library that logs GPU activity and scoped phases in NDJSON, designed for multiple GPU backends. Currently ships with a CUDA backend; other backends can be added behind the same core API.
-
-## What changed
-
-The client moved from a single-header to a multi-header layout to support multiple platforms and cleaner separation of concerns:
-- `gpumon/gpumon.hpp` — umbrella include that auto-selects a backend
-- `gpumon/core/common.hpp` — core types/utilities (logging, JSON helpers)
-- `gpumon/core/monitor.hpp` — public API (init/shutdown, ScopedMonitor, macros)
-- `gpumon/backends/cuda.hpp` — CUDA-specific helpers and launch macros
-
-You should include only `gpumon/gpumon.hpp` in application code.
 
 ## Features
 
@@ -25,35 +15,35 @@ You should include only `gpumon/gpumon.hpp` in application code.
 
 - CUDA is picked automatically if compiling with NVCC (`__CUDACC__`).
 - To force-select, define one of:
-  - `GPUMON_BACKEND_CUDA`
-  - `GPUMON_BACKEND_OPENCL` (not yet implemented; will error if selected)
+  - `GFL_BACKEND_CUDA`
+  - `GFL_BACKEND_OPENCL` (not yet implemented; will error if selected)
 
 ## Quick Start
 
 ### 1) Include
 
 ```cpp
-#include <gpumon/gpumon.hpp>
+#include <gpufl/gpufl.hpp>
 ```
 
 ### 2) Initialize and Shutdown
 
 ```cpp
 int main() {
-    gpumon::InitOptions opts;
+    gpufl::InitOptions opts;
     opts.appName = "my_cuda_app";
     // Base path/prefix (no extension). Three files will be created:
     //   <base>.kernel.log, <base>.scope.log, <base>.system.log
-    // If empty, default is "gpumon" in the current working directory.
+    // If empty, default is "gpufl" in the current working directory.
     opts.logPath = "logs/my_app"; 
     // >0 enables periodic GPU device sampling during scopes
     opts.sampleIntervalMs = 0; 
 
-    gpumon::init(opts);
+    gpufl::init(opts);
 
     // ... your code ...
 
-    gpumon::shutdown();
+    gpufl::shutdown();
 }
 ```
 
@@ -63,7 +53,7 @@ int main() {
 - Block-style scope with automatic begin/sample/end events:
 
 ```cpp
-GPUMON_SCOPE("training-epoch") {
+GFL_SCOPE("training-epoch") {
     // launch kernels, do work...
 }
 ```
@@ -72,7 +62,7 @@ GPUMON_SCOPE("training-epoch") {
 
 ```cpp
 {
-    gpumon::ScopedMonitor m{"stage-1"};
+    gpufl::ScopedMonitor m{"stage-1"};
     // work...
 }
 ```
@@ -80,7 +70,7 @@ GPUMON_SCOPE("training-epoch") {
 - Functional helper:
 
 ```cpp
-gpumon::monitor("data-load", [&]{
+gpufl::monitor("data-load", [&]{
     // work...
 });
 ```
@@ -88,19 +78,19 @@ gpumon::monitor("data-load", [&]{
 - CUDA kernel macro with auto-timing (synchronous for now):
 
 ```cpp
-GPUMON_LAUNCH(MyKernel, grid, block, sharedMemBytes, stream, arg1, arg2);
-// Also available: GPUMON_LAUNCH_TAGGED("tag", MyKernel, ...)
+GFL_LAUNCH(MyKernel, grid, block, sharedMemBytes, stream, arg1, arg2);
+// Also available: GFL_LAUNCH_TAGGED("tag", MyKernel, ...)
 ```
 
 ## Public API (summary)
 
 ```cpp
-namespace gpumon {
+namespace gpufl {
   struct InitOptions {
     std::string appName;
     // Base path/prefix for logs; three files will be produced:
     //   <base>.kernel.log, <base>.scope.log, <base>.system.log
-    // If empty, default is "gpumon" in the current directory
+    // If empty, default is "gpufl" in the current directory
     std::string logPath;   
     uint32_t    sampleIntervalMs = 0; // background sampling for scopes (0 = off)
   };
@@ -113,16 +103,16 @@ namespace gpumon {
 }
 
 // Macros (core):
-//   GPUMON_SCOPE(name)
-//   GPUMON_SCOPE_TAGGED(name, tag)
+//   GFL_SCOPE(name)
+//   GFL_SCOPE_TAGGED(name, tag)
 
 // Macros (CUDA backend):
-//   GPUMON_LAUNCH(kernel, grid, block, sharedMem, stream, ...)
-//   GPUMON_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...)
+//   GFL_LAUNCH(kernel, grid, block, sharedMem, stream, ...)
+//   GFL_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...)
 ```
 
 Notes:
-- `GPUMON_SCOPE` optionally samples GPU/device metrics periodically if `sampleIntervalMs > 0`.
+- `GFL_SCOPE` optionally samples GPU/device metrics periodically if `sampleIntervalMs > 0`.
 - Scope end will call the backend `synchronize()` to ensure timing covers in-flight GPU work.
 
 ## Log files and categories
@@ -172,7 +162,7 @@ One JSON object per line (NDJSON). Key event types and shapes (fields may be ext
 }
 ```
 
-- CUDA kernel event (from `GPUMON_LAUNCH`):
+- CUDA kernel event (from `GFL_LAUNCH`):
 
 ```json
 {
@@ -220,7 +210,7 @@ One JSON object per line (NDJSON). Key event types and shapes (fields may be ext
 
 ## Data flow and schema
 
-GPUmon client does not send data to your backend directly. Its sole responsibility is to write NDJSON log lines to files.
+GPUfl client does not send data to your backend directly. Its sole responsibility is to write NDJSON log lines to files.
 
 - Client output: three NDJSON log files written by the target process, based on `InitOptions::logPath` base.
   - `<base>.kernel.log`, `<base>.scope.log`, `<base>.system.log`
@@ -228,14 +218,14 @@ GPUmon client does not send data to your backend directly. Its sole responsibili
   - Discover and tail the three files
   - Validate each NDJSON line against the schema
   - Forward well-formed events to your backend/metrics pipeline
-- Schema location: `gpumon_client/schema` contains human-readable docs and a JSON Schema.
+- Schema location: `gpufl_client/schema` contains human-readable docs and a JSON Schema.
   - `schema/README.md` — event shapes, examples, notes
   - `schema/ndjson.schema.json` — JSON Schema (draft‑07) keyed on the `type` field
 
 ## End-to-end example
 
 ```cpp
-#include <gpumon/gpumon.hpp>
+#include <gpufl/gpufl.hpp>
 #include <cuda_runtime.h>
 
 __global__
@@ -245,40 +235,40 @@ void vectorAdd(int* a, int* b, int* c, int n) {
 }
 
 int main() {
-  gpumon::InitOptions opts;
+  gpufl::InitOptions opts;
   opts.appName = "vector_add_demo";
-  opts.logPath = "gpumon"; // produces gpumon.kernel.log, gpumon.scope.log, gpumon.system.log
+  opts.logPath = "gpufl"; // produces gpufl.kernel.log, gpufl.scope.log, gpufl.system.log
   opts.sampleIntervalMs = 5; // try periodic sampling inside scopes
 
-  gpumon::init(opts);
+  gpufl::init(opts);
 
   dim3 grid(4), block(256);
   int *a, *b, *c; // assume allocated/initialized
   // ... allocate and copy ...
 
   // Monitor a phase
-  GPUMON_SCOPE("phase-1") {
+  GFL_SCOPE("phase-1") {
     vectorAdd<<<grid, block>>>(a, b, c, 1024);
     cudaDeviceSynchronize();
   }
 
   // Kernel timing (sync)
-  GPUMON_LAUNCH(vectorAdd, grid, block, 0, 0, a, b, c, 1024);
+  GFL_LAUNCH(vectorAdd, grid, block, 0, 0, a, b, c, 1024);
 
-  gpumon::shutdown();
+  gpufl::shutdown();
 }
 ```
 
 ## CMake integration
 
-The library is header-only. Target name is `gpumon::gpumon`.
+The library is header-only. Target name is `gpufl::gpufl`.
 
 
 ```cmake
-add_subdirectory(path/to/gpumon/gpumon_client)
+add_subdirectory(path/to/gpufl/gpufl_client)
 
 add_executable(my_app main.cu)
-target_link_libraries(my_app PRIVATE gpumon::gpumon)
+target_link_libraries(my_app PRIVATE gpufl::gpufl)
 set_target_properties(my_app PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
   CUDA_STANDARD 17)
@@ -295,12 +285,12 @@ cmake --install build --prefix <dest>
 
 ## Building the bundled example
 
-From `gpumon_client` directory:
+From `gpufl_client` directory:
 
 ```bash
 cmake -S . -B build
 cmake --build build
-# Executable name may be gpumon_block_example
+# Executable name may be gpufl_block_example
 ``;
 
 On Windows with VS Generator:
@@ -312,7 +302,7 @@ cmake --build build --config Release
 
 ## Performance notes
 
-- `GPUMON_LAUNCH` performs a `cudaDeviceSynchronize()` to measure kernel duration; this is simpler but adds overhead.
+- `GFL_LAUNCH` performs a `cudaDeviceSynchronize()` to measure kernel duration; this is simpler but adds overhead.
 - Scoped monitoring calls backend `synchronize()` only when the scope ends to capture total work in the scope.
 
 Roadmap items include async timing via CUDA events and non-blocking instrumentation.
@@ -334,20 +324,20 @@ Roadmap items include async timing via CUDA events and non-blocking instrumentat
 Basic Python API is provided via a tiny extension:
 
 ```python
-import gpumon
+import gpufl
 
 # Initialize
-gpumon.init(app_name="my_py_app", log_path="logs/my_py", interval_ms=0)
+gpufl.init(app_name="my_py_app", log_path="logs/my_py", interval_ms=0)
 
 # Scoped monitor (context manager)
-with gpumon.scope("stage-1", tag="train"):
+with gpufl.scope("stage-1", tag="train"):
     # ... work ...
 
 # Shutdown (optional; occurs at interpreter exit too)
-gpumon.shutdown()
+gpufl.shutdown()
 ```
 
 Arguments:
 - app_name: string application name
-- log_path: base path/prefix used to create `<base>.kernel.log`, `<base>.scope.log`, `<base>.system.log` (default: `"gpumon"`)
+- log_path: base path/prefix used to create `<base>.kernel.log`, `<base>.scope.log`, `<base>.system.log` (default: `"gpufl"`)
 - interval_ms: background sampling interval for scopes (0 disables)

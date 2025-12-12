@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://example.org/gpumon/ndjson.schema.json",
-  "title": "GPUmon NDJSON Event Schema",
-  "description": "Schema for GPUmon newline-delimited JSON events. Validate each line independently against this schema.",
+  "$id": "https://example.org/gpufl/ndjson.schema.json",
+  "title": "GPUFL NDJSON Event Schema",
+  "description": "Schema for GPUFl newline-delimited JSON events. Validate each line independently against this schema.",
   "type": "object",
   "oneOf": [
     { "$ref": "#/definitions/initEvent" },

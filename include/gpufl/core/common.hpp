@@ -1,5 +1,5 @@
-#ifndef GPUMON_COMMON_HPP
-#define GPUMON_COMMON_HPP
+#ifndef GPUFL_COMMON_HPP
+#define GPUFL_COMMON_HPP
 
 #include <string>
 #include <fstream>
@@ -7,7 +7,6 @@
 #include <chrono>
 #include <vector>
 #include <sstream>
-#include <iomanip>
 #include <cstdint>
 #include <atomic>
 #include <map>
@@ -19,7 +18,7 @@
 #include <unistd.h>
 #endif
 
-namespace gpumon {
+namespace gpufl {
 
     enum class LogCategory {
         Meta,   // Init, Shutdown for all files
@@ -197,6 +196,6 @@ namespace gpumon {
         }
 
     } // namespace detail
-} // namespace gpumon
+} // namespace gfl
 
-#endif // GPUMON_COMMON_HPP
+#endif // GFL_COMMON_HPP

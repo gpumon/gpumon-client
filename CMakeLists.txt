@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(gpumon_client
+project(gpufl_client
     VERSION 0.1.0
     LANGUAGES CXX CUDA
     DESCRIPTION "Header-only GPU monitoring client library"
@@ -10,16 +10,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Header-only library
-add_library(gpumon INTERFACE)
+add_library(gpufl INTERFACE)
 
-add_compile_definitions(GPUMON_BACKEND_CUDA)
+add_compile_definitions(GFL_BACKEND_CUDA)
 
-target_include_directories(gpumon INTERFACE
+target_include_directories(gpufl INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_features(gpumon INTERFACE cxx_std_17)
-add_library(gpumon::gpumon ALIAS gpumon)
+target_compile_features(gpufl INTERFACE cxx_std_17)
+
+# Namespaced aliases (new and legacy)
+add_library(gpufl::gpufl ALIAS gpufl)
 
 # Python Bindings (pybind11)
 option(BUILD_PYTHON "Build Python bindings" OFF)
@@ -35,17 +37,17 @@ if(BUILD_PYTHON)
     )
     FetchContent_MakeAvailable(pybind11)
 
-    pybind11_add_module(_gpumon_client python/bindings.cpp)
+    pybind11_add_module(_gpufl_client python/bindings.cpp)
 
-    target_link_libraries(_gpumon_client PRIVATE
-        CUDA::cudart gpumon)
+    target_link_libraries(_gpufl_client PRIVATE
+        CUDA::cudart gpufl)
 
-    target_include_directories(_gpumon_client PRIVATE include)
-    install(TARGETS _gpumon_client DESTINATION gpumon)
+    target_include_directories(_gpufl_client PRIVATE include)
+    install(TARGETS _gpufl_client DESTINATION gpufl)
 endif()
 # Optional: Build example
-option(BUILD_GPUMON_EXAMPLE "Build gpumon example application" ON)
-if(BUILD_GPUMON_EXAMPLE AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+option(BUILD_GPUFL_EXAMPLE "Build gpufl example application" ON)
+if(BUILD_GPUFL_EXAMPLE AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     add_subdirectory(example/cuda)
 endif()
 
@@ -59,14 +61,14 @@ install(DIRECTORY include/
 )
 
 # Install targets
-install(TARGETS gpumon
-    EXPORT gpumon_clientTargets
+install(TARGETS gpufl
+    EXPORT gpufl_clientTargets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Export targets
-install(EXPORT gpumon_clientTargets
-    FILE gpumon_clientTargets.cmake
-    NAMESPACE gpumon::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpumon_client
+install(EXPORT gpufl_clientTargets
+    FILE gpufl_clientTargets.cmake
+    NAMESPACE gpufl::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpufl_client
 )

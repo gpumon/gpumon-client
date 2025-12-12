@@ -1,4 +1,4 @@
-name: Build GPUMON Client
+name: Build GPUFl Client
 
 on:
   push:

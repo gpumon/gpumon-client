@@ -25,24 +25,24 @@ if(NOT TARGET CUDA::nvml)
 endif()
 
 # Define Executables
-add_executable(gpumon_block_example block_style_example.cu)
+add_executable(gfl_block_example block_style_example.cu)
 add_executable(system_monitor system_monitor.cu)
 
 # Enable NVML in your code
-target_compile_definitions(system_monitor PRIVATE GPUMON_ENABLE_NVML)
+target_compile_definitions(system_monitor PRIVATE GFL_ENABLE_NVML)
 
 # 3. Link Libraries
 # Link against the target 'CUDA::nvml' instead of raw library names
-target_link_libraries(gpumon_block_example PRIVATE gpumon::gpumon)
+target_link_libraries(gfl_block_example PRIVATE gpufl::gpufl)
 
 target_link_libraries(system_monitor PRIVATE
-        gpumon::gpumon
+        gpufl::gpufl
         CUDA::cudart
         CUDA::nvml
 )
 
 # Properties
-set_target_properties(gpumon_block_example PROPERTIES
+set_target_properties(gfl_block_example PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         CUDA_ARCHITECTURES "native"
 )
