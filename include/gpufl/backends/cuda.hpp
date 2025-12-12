@@ -5,7 +5,7 @@
 #include <vector>
 #include "../core/common.hpp"
 
-#if defined(GFL_ENABLE_NVML)
+#ifdef GFL_ENABLE_NVML
     #include <nvml.h>
 #endif
 namespace gpufl {
@@ -170,15 +170,11 @@ namespace gpufl {
 
         template <typename T>
         inline const cudaFuncAttributes& get_kernel_static_attrs(T kernel) {
-            static cudaFuncAttributes attrs = {};
-            static bool initialized = false;
-
-            // Thread-safe initialization (C++11 standard guarantees)
-            if (!initialized) {
-                // If this fails (e.g. invalid kernel), attrs will remain 0-filled
-                cudaFuncGetAttributes(&attrs, kernel);
-                initialized = true;
-            }
+            static const cudaFuncAttributes attrs = [kernel](){
+                cudaFuncAttributes a = {};
+                cudaFuncGetAttributes(&a, kernel);
+                return a;
+            }();
             return attrs;
         }
     }
@@ -235,32 +231,6 @@ namespace gpufl {
     }
 }
 
-#define GFL_LAUNCH(kernel, grid, block, sharedMem, stream, ...) \
-    do { \
-        int64_t _ts = gpufl::detail::getTimestampNs(); \
-        kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
-        cudaError_t _err = cudaGetLastError(); \
-        cudaDeviceSynchronize(); \
-        int64_t _te = gpufl::detail::getTimestampNs(); \
-        /* Fetch Static Attributes (Cached) */ \
-        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
-        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs); \
-    } while(0)
-
-// wraps a single kernel launch with custom tag
-#define GFL_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...) \
-    do { \
-        int64_t _ts = gpufl::detail::getTimestampNs(); \
-        kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
-        cudaError_t _err = cudaGetLastError(); \
-        cudaDeviceSynchronize(); \
-        int64_t _te = gpufl::detail::getTimestampNs(); \
-        /* Fetch Static Attributes (Cached) */ \
-        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
-        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs, tag); \
-    } while(0)
-
-// Backward-compatibility aliases
 #define GFL_LAUNCH(kernel, grid, block, sharedMem, stream, ...) \
     do { \
         int64_t _ts = gpufl::detail::getTimestampNs(); \

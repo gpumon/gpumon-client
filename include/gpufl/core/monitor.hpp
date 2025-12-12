@@ -136,6 +136,7 @@ namespace gpufl {
         std::string name_;
         std::string tag_;
         int64_t tsStart_;
+        int targetDeviceId_ = 0;
 
         std::atomic<bool> stopSampling_;
         std::thread samplerThread_;
@@ -171,7 +172,8 @@ namespace gpufl {
             detail::writeLogLine(category, oss.str());
         }
 
-        void samplingLoop(uint32_t intervalMs) {
+        void samplingLoop(const uint32_t intervalMs) const {
+            cudaSetDevice(targetDeviceId_);
             while (!stopSampling_) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
                 if (stopSampling_) break;

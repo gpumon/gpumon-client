@@ -1,5 +1,5 @@
-import gpufl as gfl
-from gfl.utils import launch_kernel
+import gpufl
+from gpufl.utils import launch_kernel
 from numba import cuda
 import numpy as np
 
@@ -10,7 +10,7 @@ def vector_add(a, b, c):
         c[idx] = a[idx] + b[idx]
 
 def run():
-    gfl.init("Kernel_Test", "./logs", 0)
+    gpufl.init("Kernel_Test", "./logs", 0)
 
     N = 1000000
     a = cuda.to_device(np.ones(N))
@@ -27,8 +27,8 @@ def run():
     # Monitored:
     launch_kernel(vector_add, blocks, threads, a, b, c)
 
-    gfl.shutdown()
-    print("Done. Check logs/gfl.kernel.log")
+    gpufl.shutdown()
+    print("Done. Check logs/gpufl.kernel.log")
 
 if __name__ == "__main__":
     run()
