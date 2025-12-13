@@ -20,9 +20,9 @@ def matmul_kernel(A, B, C):
 
 def run_benchmark():
     # --- 2. Initialize GPUFL ---
-    # We enable the background sampler (10ms) to catch VRAM/Power usage during the heavy compute
+    # We enable the background sampler (16ms) to catch VRAM/Power usage during the heavy compute
     print("[GPUFL] Initializing...")
-    gfl.init("Numba_App", "./gfl_logs", 10)
+    gfl.init("Numba_App", "./gfl_logs", 16)
 
     try:
         # --- 3. Setup Data (Heavy Load) ---
