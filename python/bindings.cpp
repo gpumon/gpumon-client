@@ -1,5 +1,6 @@
+#include <stdexcept>
 #include <pybind11/pybind11.h>
-#include "gpufl/gpufl.hpp"
+#include "../include/gpufl/gpufl.hpp"
 
 namespace py = pybind11;
 
@@ -24,19 +25,45 @@ private:
 PYBIND11_MODULE(_gpufl_client, m) {
     m.doc() = "GPUFL Internal C++ Binding";
 
-    m.def("init", [](std::string app_name, std::string log_path, int interval_ms) {
-        gpufl::InitOptions opts;
-        opts.appName = app_name;
-        opts.logPath = log_path;
-        opts.sampleIntervalMs = interval_ms;
-        // Optional: Expose max file size to Python init if you want customizable rolling
-        // opts.maxFileSizeBytes = 2 * 1024 * 1024;
-        return gpufl::init(opts);
-    }, py::arg("app_name"), py::arg("log_path") = "", py::arg("interval_ms") = 0);
+    m.def("init", [](const std::string &app_name,
+                 const std::string &log_path,
+                 const int interval_ms,
+                 const std::string &backend) {
+            gpufl::InitOptions opts;
+            opts.appName = app_name;
+            opts.logPath = log_path;
+            opts.sampleIntervalMs = interval_ms;
+
+            // runtime backend selection
+            if (backend == "auto") {
+                opts.backend = gpufl::BackendKind::Auto;
+            } else if (backend == "nvidia") {
+                opts.backend = gpufl::BackendKind::Nvidia;
+            } else if (backend == "amd") {
+                opts.backend = gpufl::BackendKind::Amd;
+            } else if (backend == "none") {
+                opts.backend = gpufl::BackendKind::None;
+            } else {
+                throw std::runtime_error(
+                    "Invalid backend: " + backend +
+                    " (expected: 'auto', 'nvidia', 'amd', 'none')");
+            }
+
+            return gpufl::init(opts);
+        }, py::arg("app_name"),
+           py::arg("log_path") = "",
+           py::arg("interval_ms") = 0,
+           py::arg("backend") = "auto");
+
+    m.def("system_start", [](const int interval_ms, std::string name) { gpufl::systemStart(interval_ms, std::move(name)); },
+        py::arg("interval_ms"), py::arg("name") = "system");
+
+    m.def("system_stop", [](std::string name) { gpufl::systemStop(std::move(name)); },
+        py::arg("name") = "system");
 
     m.def("shutdown", &gpufl::shutdown);
 
-    // --- ADDED THIS SECTION ---
+#if GPUFL_HAS_CUDA
     m.def("log_kernel", [](std::string name,
                            int gx, int gy, int gz,
                            int bx, int by, int bz,
@@ -49,12 +76,14 @@ PYBIND11_MODULE(_gpufl_client, m) {
         // Empty attributes (Python doesn't have access to this low-level info)
         cudaFuncAttributes attrs = {};
 
-        gpufl::detail::logKernelEvent(name, start_ns, end_ns, grid, block, 0, "Success", attrs);
+        gpufl::cuda::logKernelEvent(name, start_ns, end_ns, grid, block, 0, "Success", attrs);
 
     }, py::arg("name"),
        py::arg("gx"), py::arg("gy"), py::arg("gz"),
        py::arg("bx"), py::arg("by"), py::arg("bz"),
        py::arg("start_ns"), py::arg("end_ns"));
+#endif
+
     // --------------------------
 
     py::class_<PyScope>(m, "Scope")

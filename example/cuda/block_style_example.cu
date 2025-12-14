@@ -1,6 +1,9 @@
-#include <gpufl/gpufl.hpp>
 #include <iostream>
 #include <cuda_runtime.h>
+#include "gpufl/gpufl.hpp"
+#include "gpufl/core/common.hpp"
+#include "gpufl/cuda/cuda.hpp"
+#include "gpufl/cuda/launch.hpp"
 
 __global__
 void vectorAdd(int* a, int* b, int* c, int n) {

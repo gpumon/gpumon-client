@@ -1,26 +1,68 @@
-#ifndef GPUFL_HPP
-#define GPUFL_HPP
+#pragma once
 
-// 1. Backend Auto-Detection
-#if !defined(GFL_BACKEND_CUDA) && !defined(GFL_BACKEND_OPENCL)
-    #if defined(__CUDACC__)
-        #define GFL_BACKEND_CUDA
-    #endif
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+
+#if GPUFL_HAS_CUDA
+#include "gpufl/cuda/cuda.hpp"
 #endif
 
-// 2. Core (InitOptions, State, Logging)
-#include "core/common.hpp"
+namespace gpufl {
+    enum class BackendKind { Auto, Nvidia, Amd, None };
+    struct InitOptions {
+        std::string appName = "gpufl";
+        std::string logPath = "";     // if empty, will default to "<app>.log"
+        int sampleIntervalMs = 0;     // 0 disables background system sampling
+        BackendKind backend = BackendKind::Auto;
+    };
 
-// 3. Backend Selection
-#if defined(GFL_BACKEND_CUDA)
-    #include "backends/cuda.hpp"
-#elif defined(GFL_BACKEND_OPENCL)
-    #error "GPUFL: OpenCL backend not implemented."
-#else
-    #error "GPUFL Error: No backend selected. Define GPUFL_BACKEND_CUDA."
-#endif
+    struct BackendProbeResult {
+        bool available;
+        std::string reason;
+    };
 
-// 4. Monitor (ScopedMonitor, Init, Shutdown)
-#include "core/monitor.hpp"
+    BackendProbeResult probeNvml();
+    BackendProbeResult probeRocm();
 
-#endif
+    void systemStart(int intervalMs, std::string name="system");
+    void systemStop(std::string name="system");
+
+    // Start global runtime. Returns true on success.
+    bool init(const InitOptions& opts);
+
+    // Stop runtime, flush and close logs.
+    void shutdown();
+
+
+    class ScopedMonitor {
+    public:
+        explicit ScopedMonitor(std::string name, std::string tag = "");
+        ~ScopedMonitor();
+
+        ScopedMonitor(const ScopedMonitor&) = delete;
+        ScopedMonitor& operator=(const ScopedMonitor&) = delete;
+
+    private:
+        std::string name_;
+        std::string tag_;
+        int pid_{0};
+        int64_t startTs_{0};
+        uint64_t scopeId_;
+    };
+
+    inline void monitor(const std::string& name, const std::function<void()> &fn, const std::string& tag = "") {
+        ScopedMonitor monitor(name, tag);
+        fn();
+    }
+} // namespace gpufl
+
+#define GFL_SCOPE(name) \
+    if(gpufl::ScopedMonitor _gpufl_scope{name}; true)
+
+#define GFL_SCOPE_TAGGED(name, tag) \
+    if (gpufl::ScopedMonitor _gpufl_scope{name, tag}; true)
+
+#define GFL_SYSTEM_START(interval, name) ::gpufl::systemStart(interval, name)
+#define GFL_SYSTEM_STOP(name)  ::gpufl::systemStop(name)

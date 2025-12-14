@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
     gpufl::init(opts);
 
     std::cout << "Starting GPU System Monitor (Ctrl+C to stop)..." << std::endl;
-    GFL_SYSTEM_START(1000);
+    GFL_SYSTEM_START(1000, "system");
 
     gpufl::shutdown();
     return 0;

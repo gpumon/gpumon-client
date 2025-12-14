@@ -28,9 +28,6 @@ endif()
 add_executable(gfl_block_example block_style_example.cu)
 add_executable(system_monitor system_monitor.cu)
 
-# Enable NVML in your code
-target_compile_definitions(system_monitor PRIVATE GFL_ENABLE_NVML)
-
 # 3. Link Libraries
 # Link against the target 'CUDA::nvml' instead of raw library names
 target_link_libraries(gfl_block_example PRIVATE gpufl::gpufl)

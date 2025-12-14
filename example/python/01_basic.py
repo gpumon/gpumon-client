@@ -4,7 +4,7 @@ import time
 # 1. Initialize the library
 # Arguments: (AppName, LogFilePath, SampleIntervalMs)
 # Interval=0 means "Only log start/end", no background sampling.
-gfl.init("PythonDemo", "gpufl_basic.log", 5)
+gfl.init("PythonDemo", "gpufl_basic", 5, "auto")
 
 print("Starting Trace...")
 
@@ -22,4 +22,4 @@ with gfl.Scope("DataLoading", "io-bound"):
 
 # 4. Cleanup (Optional, but good practice)
 gfl.shutdown()
-print("Trace finished. Check 'gpufl_basic.log'")
+print("Trace finished. Check 'gpufl_basic'")

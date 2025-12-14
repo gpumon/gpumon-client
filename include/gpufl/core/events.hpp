@@ -1,0 +1,120 @@
+#pragma once
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace gpufl {
+    struct DeviceSample {
+        int deviceId = 0;
+        std::string name;
+        std::string uuid;
+        int pciBusId = 0;
+
+        size_t freeMiB = 0;
+        size_t totalMiB = 0;
+        size_t usedMiB = 0;
+
+        unsigned int gpuUtil = 0;      // %
+        unsigned int memUtil = 0;      // %
+        unsigned int tempC = 0;        // Celsius
+        unsigned int powerMw = 0;      // Milliwatts
+        unsigned int clockGfx = 0;     // MHz
+        unsigned int clockSm = 0;      // MHz
+        unsigned int clockMem = 0;     // MHz
+    };
+
+    struct DeviceSnapshot {
+        int64_t tsNs = 0;
+        std::vector<DeviceSample> devices;
+    };
+
+    struct InitEvent {
+        int pid = 0;
+        std::string app;
+        std::string logPath;
+        int64_t tsNs = 0;
+    };
+
+    struct ShutdownEvent {
+        int pid = 0;
+        std::string app;
+        int64_t tsNs = 0;
+    };
+
+    struct KernelEvent {
+        int pid = 0;
+        std::string app;
+
+        std::string name;
+
+        int64_t tsStartNs = 0;
+        int64_t tsEndNs = 0;
+        int64_t durationNs = 0;
+
+        std::string grid;
+        std::string block;
+        int dynSharedBytes = 0;
+
+        int numRegs = 0;
+        std::size_t staticSharedBytes = 0;
+        std::size_t localBytes = 0;
+        std::size_t constBytes = 0;
+
+        std::string cudaError;
+        std::string tag;
+    };
+
+    struct ScopeBeginEvent {
+        uint64_t scopeId = 0;
+        int pid = 0;
+        std::string app;
+        std::string name;
+        std::string tag;
+        int64_t tsNs = 0;
+        std::vector<DeviceSample> devices;
+    };
+
+    struct ScopeEndEvent {
+        uint64_t scopeId = 0;
+        int pid = 0;
+        std::string app;
+        std::string name;
+        std::string tag;
+        int64_t tsNs = 0;
+        std::vector<DeviceSample> devices;
+    };
+
+    struct ScopeSampleEvent {
+        uint64_t scopeId = 0;
+        int pid = 0;
+        std::string app;
+        std::string name;
+        std::string tag;
+        int64_t tsNs = 0;
+        std::vector<DeviceSample> devices;
+    };
+
+    struct SystemStartEvent {
+        int pid{};
+        std::string app;
+        std::string name;
+        int64_t tsNs{};
+        std::vector<DeviceSample> devices;
+    };
+
+    struct SystemSampleEvent {
+        int pid = 0;
+        std::string app;
+        std::string name;
+        int64_t tsNs = 0;
+        std::vector<DeviceSample> devices;
+    };
+
+    struct SystemStopEvent {
+        int pid{};
+        std::string app;
+        std::string name;
+        int64_t tsNs{};
+        std::vector<DeviceSample> devices;
+    };
+}
