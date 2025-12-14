@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 
+#if GPUFL_HAS_CUDA
 #include <cuda_runtime.h>
 
 namespace gpufl::cuda {
@@ -31,3 +32,5 @@ namespace gpufl::cuda {
     }
 
 }
+#else
+#endif

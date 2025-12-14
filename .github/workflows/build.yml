@@ -15,9 +15,6 @@ jobs:
         os: [ubuntu-22.04, windows-latest]
         python-version: ["3.12", "3.13"]
 
-    # IMPORTANT:
-    # - Use the NEW option names (GPUFL_ENABLE_NVIDIA / GPUFL_ENABLE_ROCM, etc.)
-    # - Pass them through CMAKE_ARGS so scikit-build-core forwards them to CMake.
     env:
       CMAKE_ARGS: >-
         -DGPUFL_ENABLE_NVIDIA=ON
