@@ -33,6 +33,9 @@ target_include_directories(gpufl
 
 target_compile_features(gpufl INTERFACE cxx_std_17)
 
+# Enable PIC for static library (required when linking into shared libraries like Python modules)
+set_target_properties(gpufl PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_sources(gpufl PRIVATE
     include/gpufl/core/logger.cpp
     include/gpufl/core/sampler.cpp
