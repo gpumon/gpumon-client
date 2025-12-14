@@ -37,14 +37,7 @@ def test_pipeline():
         print("5. Verifying Log Files...")
 
         expected_files = {
-            "scope": f"{log_base}.scope.log",
-        }
-
-        # Only require kernel/system logs if they actually exist.
-        # CI runners often don't have CUDA/NVML/ROCm available.
-        optional_files = {
-            "kernel": f"{log_base}.kernel.log",
-            "system": f"{log_base}.system.log",
+            "scope": f"{log_base}.0.log",
         }
 
         # Required: scope
@@ -52,13 +45,6 @@ def test_pipeline():
             print(f"FAILED: Missing scope log file at {expected_files['scope']}")
             exit(1)
         print(f"Found scope log: {expected_files['scope']}")
-
-        # Optional: kernel/system
-        for cat, path in optional_files.items():
-            if os.path.exists(path):
-                print(f"Found optional {cat} log: {path}")
-            else:
-                print(f"Skipping {cat} log check (not generated on this runner): {path}")
 
     finally:
         # Cleanup
