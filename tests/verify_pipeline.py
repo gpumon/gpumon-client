@@ -21,7 +21,7 @@ def test_pipeline():
 
         print("3. Running Scope...")
         with gfl.Scope("ci_scope_01", "test_tag"):
-            time.sleep(0.01)
+            time.sleep(100)
 
         print("4. Shutting down...")
         gfl.shutdown()
