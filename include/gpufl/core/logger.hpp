@@ -26,38 +26,55 @@ namespace gpufl {
         bool open(const Options& opt);
         void close();
 
-        // Structured helpers
+        // Lifecycle: writes to ALL active channels
         void logInit(const InitEvent& e, const std::string& devicesJson );
         void logShutdown(const ShutdownEvent& e);
 
+        // Kernel channel
         void logKernel(const KernelEvent& e, const std::string& devicesJson);
+
+        // Scope channel
         void logScopeBegin(const ScopeBeginEvent& e);
         void logScopeEnd(const ScopeEndEvent& e);
         void logScopeSample(const ScopeSampleEvent& e);
+
+        // System channel
         void logSystemStart(const SystemStartEvent& e);
         void logSystemStop(const SystemStopEvent& e);
         void logSystemSample(const SystemSampleEvent& e);
 
     private:
-        struct LogFileState {
-            std::ofstream stream;
-            std::string basePath;
-            int index = 0;
-            size_t currentBytes = 0;
+        class LogChannel {
+        public:
+            LogChannel(std::string name, Options  opt);
+            ~LogChannel();
+
+            void write(const std::string& line);
+            void close();
+            bool isOpen() const;
+
+        private:
+            void ensureOpenLocked();
+            void rotateLocked();
+            [[nodiscard]] std::string makePathLocked() const;
+            void closeLocked();
+
+            std::string name_;
+            Options opt_;
+
+            std::ofstream stream_;
+            int index_ = 0;
+            size_t currentBytes_ = 0;
+
+            mutable std::mutex mu_;
+            bool opened_ = false;
         };
 
-        void closeLocked_();
-
-        void writeLine(const std::string& jsonLine);
-
-        // rotation helpers (mutex must be held)
-        void ensureOpenLocked();
-        void rotateLocked();
-        [[nodiscard]] std::string makePathLocked() const;
-
-        std::mutex mu_;
         Options opt_;
-        LogFileState file_;
-        bool opened_ = false;
+
+        // Channels for different event categories
+        std::unique_ptr<LogChannel> chanKernel_;    // kernel
+        std::unique_ptr<LogChannel> chanScope_;     // scope_begin/end/sample
+        std::unique_ptr<LogChannel> chanSystem_;    // system_start/stop/sample
     };
 }

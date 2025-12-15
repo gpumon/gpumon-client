@@ -1,79 +1,94 @@
 import gpufl as gfl
 import os
-import json
 import time
 import tempfile
 import shutil
+import glob
+import json
 
-
-def ls_dir(d):
-    try:
-        return sorted(os.listdir(d))
-    except Exception as e:
-        return [f"<ls failed: {e}>"]
 def test_pipeline():
-    print("--- Starting GPUFL Pipeline Verification ---")
-
+    print("--- Starting GPUFL Multi-Log Pipeline Verification ---")
     temp_dir = tempfile.mkdtemp()
-    log_base = os.path.join(temp_dir, "ci_test")
-    print(f"1. Log path set to: {log_base}")
-    print("   temp_dir contents (start):", ls_dir(temp_dir))
+    log_base_name = "ci_test"
+    log_base_path = os.path.join(temp_dir, log_base_name)
+    print(f"1. Log path set to: {log_base_path}")
 
-    keep_dir = False
+    keep = False
     try:
         print("2. Initializing GPUFL...")
-        ok = gfl.init("CI_Test_App", log_base, 0)
-        print("   gfl.init returned:", ok)
-        print("   temp_dir contents (after init):", ls_dir(temp_dir))
-
-        if not ok:
-            print("FAILED: gfl.init() returned False on this runner.")
-            keep_dir = True
-            raise SystemExit(1)
+        # This should trigger "init" which is broadcast to kernel, scope, and system logs
+        gfl.init("CI_Test_App", log_base_path, 0)
 
         print("3. Running Scope...")
+        # This should write only to the scope log
         with gfl.Scope("ci_scope_01", "test_tag"):
-            time.sleep(0.05)
-
-        print("   temp_dir contents (after scope):", ls_dir(temp_dir))
+            time.sleep(0.01)
 
         print("4. Shutting down...")
+        # This triggers "shutdown", broadcast to all logs
         gfl.shutdown()
-        print("   temp_dir contents (after shutdown):", ls_dir(temp_dir))
 
         print("5. Verifying Log Files...")
+        files = sorted(os.listdir(temp_dir))
+        print(f"   Files found in {temp_dir}:")
+        for f in files:
+            print(f"    - {f}")
 
-        candidates = [
-            f"{log_base}.scope.log",
-            f"{log_base}.0.log",
-        ]
-        found = [p for p in candidates if os.path.exists(p)]
-
-        if not found:
-            print("FAILED: Missing scope log file. Tried:")
-            for p in candidates:
-                print("  -", p)
-            print("Files in temp_dir:")
-            for f in ls_dir(temp_dir):
-                print("  -", f)
-            keep_dir = True
+        if not files:
+            print("FAILED: No log files were created at all.")
+            keep = True
             raise SystemExit(1)
 
-        print("Found scope log:", found[0])
+        # distinct categories expected from the C++ logger
+        categories = ["kernel", "scope", "system"]
 
-    except SystemExit:
+        # We expect files named like: ci_test.kernel.0.log
+        for cat in categories:
+            expected_name = f"{log_base_name}.{cat}.0.log"
+            full_path = os.path.join(temp_dir, expected_name)
+
+            if not os.path.exists(full_path):
+                print(f"FAILED: Expected log file missing: {expected_name}")
+                keep = True
+                raise SystemExit(1)
+
+            print(f"   [OK] Found {cat} log: {expected_name}")
+
+            # 6. Verify Content
+            with open(full_path, 'r') as f:
+                lines = f.readlines()
+
+            # Every file should have at least init and shutdown
+            has_init = any('"type":"init"' in line for line in lines)
+            has_shutdown = any('"type":"shutdown"' in line for line in lines)
+
+            if not (has_init and has_shutdown):
+                print(f"FAILED: {cat} log missing lifecycle events (init/shutdown).")
+                keep = True
+                raise SystemExit(1)
+
+            # Specific check for scope log
+            if cat == "scope":
+                has_scope = any('"type":"scope_begin"' in line for line in lines)
+                if has_scope:
+                    print("   [OK] Scope events found in scope log.")
+                else:
+                    print("FAILED: No scope events found in scope log.")
+                    keep = True
+                    raise SystemExit(1)
+
+        print("\nSUCCESS: All log files created and content verified.")
+
+    except Exception as e:
+        print(f"\nCRITICAL FAILURE: {e}")
+        keep = True
         raise
-    except Exception:
-        print("FAILED with exception:")
-        traceback.print_exc()
-        keep_dir = True
-        raise
+
     finally:
-        if keep_dir:
-            print("Keeping temp dir for inspection:", temp_dir)
+        if keep:
+            print(f"Keeping temp dir for inspection: {temp_dir}")
         else:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == "__main__":
     test_pipeline()

@@ -1,5 +1,6 @@
 #include "gpufl/core/logger.hpp"
 #include <sstream>
+#include <utility>
 
 namespace gpufl {
     static inline std::string jsonEscape(const std::string& s) {
@@ -46,90 +47,120 @@ namespace gpufl {
                 << ",\"clk_mem\":" << dev.clockMem
                 << "}";
         }
-
         oss << "]";
         return oss.str();
     }
+
+    // --- LogChannel Implementation ---
+
+    Logger::LogChannel::LogChannel(std::string name, Options opt)
+        : name_(std::move(name)), opt_(std::move(opt)) {
+        if (!opt_.basePath.empty()) {
+            opened_ = true;
+        }
+    }
+
+    Logger::LogChannel::~LogChannel() {
+        close();
+    }
+
+    // This is the function causing your linker error:
+    void Logger::LogChannel::close() {
+        std::lock_guard<std::mutex> lk(mu_);
+        closeLocked();
+    }
+
+    void Logger::LogChannel::closeLocked() {
+        if (stream_.is_open()) {
+            stream_.flush();
+            stream_.close();
+        }
+        opened_ = false;
+    }
+
+    bool Logger::LogChannel::isOpen() const {
+        return opened_;
+    }
+
+    std::string Logger::LogChannel::makePathLocked() const {
+        std::ostringstream oss;
+        // Naming format: basePath.category.index.log
+        oss << opt_.basePath << "." << name_ << "." << index_ << ".log";
+        return oss.str();
+    }
+
+    void Logger::LogChannel::ensureOpenLocked() {
+        if (!opened_) return;
+        if (stream_.is_open()) return;
+
+        const std::string path = makePathLocked();
+        stream_.open(path, std::ios::out | std::ios::app);
+        currentBytes_ = 0;
+    }
+
+    void Logger::LogChannel::rotateLocked() {
+        if (!opened_) return;
+        if (stream_.is_open()) {
+            stream_.flush();
+            stream_.close();
+        }
+        index_ += 1;
+        currentBytes_ = 0;
+        ensureOpenLocked();
+    }
+
+    void Logger::LogChannel::write(const std::string& line) {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (!opened_) return;
+
+        ensureOpenLocked();
+        if (!stream_.good()) return;
+
+        const size_t bytesToWrite = line.size() + 1; // + '\n'
+        if (opt_.rotateBytes > 0 && (currentBytes_ + bytesToWrite) > opt_.rotateBytes) {
+            rotateLocked();
+            if (!stream_.good()) return;
+        }
+
+        stream_.write(line.data(), static_cast<std::streamsize>(line.size()));
+        stream_.put('\n');
+        currentBytes_ += bytesToWrite;
+
+        if (opt_.flushAlways) {
+            stream_.flush();
+        }
+    }
+
+    // --- Logger Implementation ---
 
     Logger::Logger() = default;
     Logger::~Logger() { close(); }
 
     bool Logger::open(const Options& opt) {
-        std::lock_guard lk(mu_);
-        closeLocked_();
-
+        close();
         opt_ = opt;
-        file_ = LogFileState{};
-        file_.basePath = opt_.basePath;
-        if (file_.basePath.empty()) return false;
 
-        opened_ = true;
-        ensureOpenLocked();
-        return file_.stream.good();
+        if (opt_.basePath.empty()) return false;
+
+        // Create channels for specific categories
+        chanKernel_ = std::make_unique<LogChannel>("kernel", opt_);
+        chanScope_  = std::make_unique<LogChannel>("scope", opt_);
+        chanSystem_ = std::make_unique<LogChannel>("system", opt_);
+
+        return true;
     }
 
     void Logger::close() {
-        std::lock_guard lk(mu_);
-        closeLocked_();
+        if (chanKernel_) chanKernel_->close();
+        if (chanScope_) chanScope_->close();
+        if (chanSystem_) chanSystem_->close();
+
+        chanKernel_.reset();
+        chanScope_.reset();
+        chanSystem_.reset();
     }
 
-    void Logger::closeLocked_() {
-        if (file_.stream.is_open()) {
-            file_.stream.flush();
-            file_.stream.close();
-        }
-        opened_ = false;
-        file_ = LogFileState{};
-    }
-
-    void Logger::ensureOpenLocked() {
-        if (!opened_) return;
-        if (file_.stream.is_open()) return;
-
-        const std::string path = makePathLocked();
-        file_.stream.open(path, std::ios::out | std::ios::app);
-        file_.currentBytes = 0;
-    }
-
-    std::string Logger::makePathLocked() const {
-        std::ostringstream oss;
-        oss << file_.basePath << "." << file_.index << ".log";
-        return oss.str();
-    }
-
-    void Logger::rotateLocked() {
-        if (!opened_) return;
-        if (file_.stream.is_open()) {
-            file_.stream.flush();
-            file_.stream.close();
-        }
-        file_.index += 1;
-        file_.currentBytes = 0;
-        ensureOpenLocked();
-    }
-
-    void Logger::writeLine(const std::string& jsonLine) {
-        std::lock_guard<std::mutex> lk(mu_);
-        if (!opened_) return;
-
-        ensureOpenLocked();
-        if (!file_.stream.good()) return;
-
-        // Rotation check
-        const size_t bytesToWrite = jsonLine.size() + 1; // + '\n'
-        if (opt_.rotateBytes > 0 && (file_.currentBytes + bytesToWrite) > opt_.rotateBytes) {
-            rotateLocked();
-            if (!file_.stream.good()) return;
-        }
-
-        file_.stream.write(jsonLine.data(), static_cast<std::streamsize>(jsonLine.size()));
-        file_.stream.put('\n');
-        file_.currentBytes += bytesToWrite;
-
-        if (opt_.flushAlways) {
-            file_.stream.flush();
-        }
-    }
+    // --- Broadcast Lifecycle Events ---
 
     void Logger::logInit(const InitEvent& e, const std::string& devicesJson) {
         std::ostringstream oss;
@@ -141,7 +172,13 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesJson
             << "}";
-        writeLine(oss.str());
+
+        std::string json = oss.str();
+
+        // Broadcast to all active channels
+        if (chanKernel_) chanKernel_->write(json);
+        if (chanScope_)  chanScope_->write(json);
+        if (chanSystem_) chanSystem_->write(json);
     }
 
     void Logger::logShutdown(const ShutdownEvent& e) {
@@ -152,10 +189,19 @@ namespace gpufl {
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << "}";
-        writeLine(oss.str());
+
+        std::string json = oss.str();
+
+        // Broadcast to all active channels
+        if (chanKernel_) chanKernel_->write(json);
+        if (chanScope_)  chanScope_->write(json);
+        if (chanSystem_) chanSystem_->write(json);
     }
 
+    // --- Specific Event Channels ---
+
     void Logger::logKernel(const KernelEvent& e, const std::string& devicesJson) {
+        if (!chanKernel_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"kernel\""
@@ -175,10 +221,11 @@ namespace gpufl {
             << ",\"const_bytes\":" << e.constBytes
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
             << "}";
-        writeLine(oss.str());
+        chanKernel_->write(oss.str());
     }
 
     void Logger::logScopeBegin(const ScopeBeginEvent& e) {
+        if (!chanScope_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"scope_begin\""
@@ -189,10 +236,11 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanScope_->write(oss.str());
     }
 
     void Logger::logScopeEnd(const ScopeEndEvent& e) {
+        if (!chanScope_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"scope_end\""
@@ -203,10 +251,11 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanScope_->write(oss.str());
     }
 
     void Logger::logScopeSample(const ScopeSampleEvent& e) {
+        if (!chanScope_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"scope_sample\""
@@ -217,10 +266,11 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanScope_->write(oss.str());
     }
 
     void Logger::logSystemSample(const SystemSampleEvent& e) {
+        if (!chanSystem_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"system_sample\""
@@ -230,10 +280,11 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanSystem_->write(oss.str());
     }
 
     void Logger::logSystemStart(const SystemStartEvent &e) {
+        if (!chanSystem_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"system_start\""
@@ -243,10 +294,11 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanSystem_->write(oss.str());
     }
 
     void Logger::logSystemStop(const SystemStopEvent &e) {
+        if (!chanSystem_) return;
         std::ostringstream oss;
         oss << "{"
             << "\"type\":\"system_stop\""
@@ -256,6 +308,6 @@ namespace gpufl {
             << ",\"ts_ns\":" << e.tsNs
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
-        writeLine(oss.str());
+        chanSystem_->write(oss.str());
     }
 }
