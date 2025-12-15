@@ -100,7 +100,7 @@ namespace gpufl {
         if (stream_.is_open()) return;
 
         const std::string path = makePathLocked();
-        fs::path p(path);
+        const fs::path p(path);
 
         // Ensure the parent directory exists (just in case)
         if (p.has_parent_path()) {
