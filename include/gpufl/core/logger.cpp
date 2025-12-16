@@ -92,7 +92,10 @@ namespace gpufl {
         // Naming format: basePath.category.index.log
         oss << "." << name_ << "." << index_ << ".log";
         std::string finalPath = opt_.basePath + oss.str();
-        std::cerr << "[GPUFL DEBUG] makePathLocked: " << finalPath << std::endl;
+
+        // [DEBUG] Print the exact path C++ is generating
+        std::fprintf(stderr, "[GPUFL-LOGGER] makePathLocked: %s\n", finalPath.c_str());
+        std::fflush(stderr);
         return finalPath;
     }
 

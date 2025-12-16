@@ -35,7 +35,10 @@ PYBIND11_MODULE(_gpufl_client, m) {
 
     m.def("init", [](const std::string &app_name,
                  const std::string &log_path,
-                 const int sampleIntervalMs)->bool {
+                 const int intervals_ms)->bool {
+
+        std::fprintf(stderr, "[BUILD-VERIFY] Executing init binding. Path: %s\n", log_path.c_str());
+        std::fflush(stderr);
         gpufl::InitOptions opts;
         opts.appName = app_name;
         opts.logPath = log_path;
@@ -45,7 +48,7 @@ PYBIND11_MODULE(_gpufl_client, m) {
         return gpufl::init(opts);
     }, py::arg("app_name"),
        py::arg("log_path") = "",
-       py::arg("interval_ms") = 0);
+       py::arg("intervals_ms") = 0);
 
     m.def("system_start", [](const int interval_ms, std::string name) { gpufl::systemStart(interval_ms, std::move(name)); },
         py::arg("interval_ms"), py::arg("name") = "system");
