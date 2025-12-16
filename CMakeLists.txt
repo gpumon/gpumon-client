@@ -77,20 +77,34 @@ if(GPUFL_ENABLE_NVIDIA)
     #
 
     if(WIN32)
-        find_library(NVML_LIBRARY NAMES nvml
+        # nvml.dll usually comes from the NVIDIA driver (NVSMI), not CUDA toolkit.
+        find_path(NVML_DLL_DIR NAMES nvml.dll
             PATHS
-            "$ENV{ProgramFiles}/NVIDIA GPU Computing Toolkit/CUDA/v12.8/lib/x64"
-            "$ENV{CUDA_PATH}/lib/x64"
-            PATH_SUFFIXES lib lib/x64
+            "$ENV{ProgramFiles}/NVIDIA Corporation/NVSMI"
+            "$ENV{SystemRoot}/System32"
         )
+
+        if(NVML_DLL_DIR)
+            set(GPUFL_HAS_NVML 1)
+            target_compile_definitions(gpufl PUBLIC GPUFL_HAS_NVML=1)
+
+            # If you still want link-time import lib, only do it when DLL exists:
+            find_library(NVML_LIBRARY NAMES nvml nvidia-ml
+                PATHS "$ENV{CUDA_PATH}/lib/x64"
+                PATH_SUFFIXES lib lib/x64
+            )
+            if(NVML_LIBRARY)
+                target_link_libraries(gpufl PRIVATE ${NVML_LIBRARY})
+            endif()
+        endif()
     else()
         find_library(NVML_LIBRARY NAMES nvidia-ml)
-    endif()
 
-    if(NVML_LIBRARY)
-        set(GPUFL_HAS_NVML 1)
-        target_compile_definitions(gpufl PUBLIC GPUFL_HAS_NVML=1)
-        target_link_libraries(gpufl PRIVATE ${NVML_LIBRARY})
+        if(NVML_LIBRARY)
+            set(GPUFL_HAS_NVML 1)
+            target_compile_definitions(gpufl PUBLIC GPUFL_HAS_NVML=1)
+            target_link_libraries(gpufl PRIVATE ${NVML_LIBRARY})
+        endif()
     endif()
 
     #
