@@ -36,7 +36,7 @@ PYBIND11_MODULE(_gpufl_client, m) {
     m.def("init", [](const std::string &app_name,
                  const std::string &log_path,
                  const int sampleIntervalMs,
-                 const std::string &backend)->bool {
+                 const std::string &backend = "auto")->bool {
         gpufl::InitOptions opts;
         opts.appName = app_name;
         opts.logPath = log_path;
