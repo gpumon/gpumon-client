@@ -5,6 +5,13 @@ import tempfile
 import shutil
 import glob
 import json
+import sys
+
+
+print("gpufl module file:", getattr(gfl, "__file__", None))
+print("python exe:", sys.executable)
+print("sys.path[0:5]:", sys.path[:5])
+print("init func:", gfl.init)
 
 def test_pipeline():
     print("--- Starting GPUFL Multi-Log Pipeline Verification ---")

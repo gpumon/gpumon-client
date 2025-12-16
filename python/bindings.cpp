@@ -33,9 +33,9 @@ PYBIND11_MODULE(_gpufl_client, m) {
         .def_readwrite("scopeSampleRateMs", &gpufl::InitOptions::scopeSampleRateMs)
         .def_readwrite("systemSampleRateMs", &gpufl::InitOptions::systemSampleRateMs);
 
-    m.def("init", [](const std::string &app_name,
-                 const std::string &log_path,
-                 const int intervals_ms)->bool {
+    m.def("init", [](std::string app_name,
+                 std::string log_path,
+                 int intervals_ms)->bool {
 
         std::fprintf(stderr, "[BUILD-VERIFY] Executing init binding. Path: %s\n", log_path.c_str());
         std::fflush(stderr);
