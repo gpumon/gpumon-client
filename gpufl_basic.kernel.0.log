@@ -1,2 +1,0 @@
-{"type":"init","pid":50840,"app":"PythonDemo","logPath":"gpufl_basic","ts_ns":533815390771200,"system_rate_ms":5,"host":{"cpu_pct":6.9,"ram_used_mib":24531,"ram_total_mib":32189},"devices":[{"id":0,"name":"NVIDIA GeForce RTX 5060 Laptop GPU","uuid":"GPU-fc2e721b-a3b1-dc5b-63f0-76b7e624f037","pci_bus":2,"used_mib":341,"free_mib":7810,"total_mib":8151,"util_gpu":0,"util_mem":0,"temp_c":34,"power_mw":12885,"clk_gfx":180,"clk_sm":180,"clk_mem":405}]}
-{"type":"shutdown","pid":50840,"app":"PythonDemo","ts_ns":533816127380300}
