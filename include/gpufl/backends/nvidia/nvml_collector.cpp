@@ -97,9 +97,28 @@ namespace gpufl::nvidia {
             }
 
             // Clocks (not all GPUs expose all clocks; ignore failures)
-            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_GRAPHICS, &clkGfx) == NVML_SUCCESS) s.clockGfx = (int)clkGfx;
-            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_SM, &clkSm) == NVML_SUCCESS)       s.clockSm  = (int)clkSm;
-            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_MEM, &clkMem) == NVML_SUCCESS)     s.clockMem = (int)clkMem;
+            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_GRAPHICS, &clkGfx) == NVML_SUCCESS) s.clockGfx = static_cast<int>(clkGfx);
+            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_SM, &clkSm) == NVML_SUCCESS)       s.clockSm  = static_cast<int>(clkSm);
+            if (nvmlDeviceGetClockInfo(dev, NVML_CLOCK_MEM, &clkMem) == NVML_SUCCESS)     s.clockMem = static_cast<int>(clkMem);
+
+            // Throttle Reasons
+            unsigned long long reasons = 0;
+            if (nvmlDeviceGetCurrentClocksThrottleReasons(dev, &reasons) == NVML_SUCCESS) {
+                // Check for Power Cap (0x0000000000000004 usually, but check nvml.h constant)
+                // NVML_CLOCKS_THROTTLE_REASON_SW_POWER_CAP
+                s.throttlePower = (reasons & 0x04) != 0;
+
+                // Check for Thermal (Hardware Slowdown or Thermal Caps)
+                // NVML_CLOCKS_THROTTLE_REASON_HW_SLOWDOWN | SW_THERMAL | HW_THERMAL
+                bool therm = false;
+                if (reasons & 0x08) therm = true; // HW_SLOWDOWN (High Temp)
+                if (reasons & 0x20) therm = true; // SW_THERMAL
+                if (reasons & 0x40) therm = true; // HW_THERMAL
+                s.throttleThermal = therm;
+            } else {
+                s.throttlePower = false;
+                s.throttleThermal = false;
+            }
 
             out.push_back(std::move(s));
         }

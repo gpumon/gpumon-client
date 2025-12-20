@@ -27,6 +27,9 @@ namespace gpufl {
         unsigned int clockGfx = 0;     // MHz
         unsigned int clockSm = 0;      // MHz
         unsigned int clockMem = 0;     // MHz
+
+        bool throttlePower; // True if hitting Power CAp
+        bool throttleThermal; // True if slowing down due to Heat
     };
 
     struct InitEvent {

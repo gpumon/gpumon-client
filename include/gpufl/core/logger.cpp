@@ -49,6 +49,8 @@ namespace gpufl {
                 << ",\"clk_gfx\":" << dev.clockGfx
                 << ",\"clk_sm\":" << dev.clockSm
                 << ",\"clk_mem\":" << dev.clockMem
+                << ",\"throttle_pwr\":" << (dev.throttlePower ? 1 : 0)
+                << ",\"throttle_therm\":" << (dev.throttleThermal ? 1 : 0)
                 << "}";
         }
         oss << "]";
