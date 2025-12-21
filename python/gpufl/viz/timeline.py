@@ -110,11 +110,17 @@ def _explode_host_samples(df):
 
 def _reconstruct_intervals(df, start_type, end_type, name_col="name", fallback_name="Scope"):
     pd = _require_pandas()
-    subset = df[df["event_type"].isin([start_type, end_type])].copy()
+    # Support both "scope_start" and "scope_begin" for compatibility
+    start_types = [start_type]
+    if start_type == "scope_start":
+        start_types.append("scope_begin")
+    
+    subset = df[df["event_type"].isin(start_types + [end_type])].copy()
     if subset.empty: return []
 
     intervals = []
-    stack = {}
+    # Use a dictionary of lists to handle multiple nested intervals with the same name
+    stacks = {} 
     min_ts = df["ts_ns"].min()
     if pd.isna(min_ts): min_ts = 0
 
@@ -127,14 +133,18 @@ def _reconstruct_intervals(df, start_type, end_type, name_col="name", fallback_n
         if pd.isna(ts): ts = r.get("ts_start_ns")
         if pd.isna(ts): continue
 
-        if etype == start_type:
-            stack[name] = ts
+        if etype in start_types:
+            if name not in stacks:
+                stacks[name] = []
+            stacks[name].append(ts)
         elif etype == end_type:
-            if name in stack:
-                start_ns = stack.pop(name)
+            if name in stacks and stacks[name]:
+                start_ns = stacks[name].pop()
                 start_sec = (start_ns - min_ts) / 1e9
                 dur_sec = (ts - start_ns) / 1e9
                 intervals.append((start_sec, dur_sec, name))
+                if not stacks[name]:
+                    del stacks[name]
     return intervals
 
 # ==========================================
@@ -154,7 +164,11 @@ def plot_combined_timeline(df, title="GPUFL Timeline"):
     if pd.isna(min_ts): min_ts = 0
 
     # --- Prepare Data ---
+    # Try both "scope_start" and "scope_begin"
     scope_data = _reconstruct_intervals(df, "scope_start", "scope_end")
+    if not scope_data:
+        scope_data = _reconstruct_intervals(df, "scope_begin", "scope_end")
+    
     if not scope_data:
         app_data = _reconstruct_intervals(df, "init", "shutdown", name_col="app", fallback_name="App")
         scope_data.extend(app_data)

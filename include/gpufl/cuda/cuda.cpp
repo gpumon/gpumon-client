@@ -1,11 +1,20 @@
 #define GPUFL_EXPORTS
 #include "gpufl/cuda/cuda.hpp"
+
+#include <deque>
+
 #include "gpufl/core/events.hpp"
 #include "gpufl/core/runtime.hpp"
 #include "gpufl/core/common.hpp"
 #include "gpufl/core/logger.hpp"
 
 namespace gpufl::cuda {
+    static std::mutex g_queueMutex;
+    static std::deque<PendingKernel> g_pendingQueue;
+
+    static std::mutex g_poolMutex;
+    static std::vector<cudaEvent_t> g_eventPool;
+
     std::string dim3ToString(const dim3 v) {
         std::ostringstream oss;
         oss << "(" << v.x << "," << v.y << "," << v.z << ")";
@@ -27,52 +36,126 @@ namespace gpufl::cuda {
         }
         return cache[deviceId];
     }
-    KernelMonitor::KernelMonitor(std::string name,
-                                 std::string tag,
-                                 std::string grid, std::string block,
-                                 const int dynShared, const int numRegs,
-                                 const size_t staticShared, const size_t localBytes, const size_t constBytes,
-                                 float occupancy, int maxActiveBlocks)
-        : name_(std::move(name)), pid_(detail::getPid()), startTs_(detail::getTimestampNs()), tag_(std::move(tag)) {
+    void initEventPool(size_t initialSize) {
+        std::lock_guard<std::mutex> lk(g_poolMutex);
+        for (size_t i = 0; i < initialSize; ++i) {
+            cudaEvent_t e;
+            // cudaEventBlockingSync is NOT needed here because we use cudaEventQuery
+            cudaEventCreateWithFlags(&e, cudaEventDisableTiming);
+            // Actually we NEED timing for duration, so default flags:
+            cudaEventCreate(&e);
+            g_eventPool.push_back(e);
+        }
+    }
 
+    void freeEventPool() {
+        std::lock_guard<std::mutex> lk(g_poolMutex);
+        for (auto e : g_eventPool) {
+            cudaEventDestroy(e);
+        }
+        g_eventPool.clear();
+    }
+
+    std::pair<cudaEvent_t, cudaEvent_t> getEventPair() {
+        std::lock_guard lk(g_poolMutex);
+
+        cudaEvent_t e1, e2;
+
+        if (g_eventPool.size() < 2) {
+            // Pool empty? Allocate new ones (Slow path)
+            cudaEventCreate(&e1);
+            cudaEventCreate(&e2);
+        } else {
+            // Fast path
+            e1 = g_eventPool.back(); g_eventPool.pop_back();
+            e2 = g_eventPool.back(); g_eventPool.pop_back();
+        }
+        return {e1, e2};
+    }
+
+    void returnEventPair(cudaEvent_t start, cudaEvent_t stop) {
+        std::lock_guard<std::mutex> lk(g_poolMutex);
+        g_eventPool.push_back(start);
+        g_eventPool.push_back(stop);
+    }
+
+    // --- Deferred Engine ---
+
+    void pushPendingKernel(PendingKernel&& k) {
+        std::lock_guard<std::mutex> lk(g_queueMutex);
+        g_pendingQueue.push_back(std::move(k));
+    }
+
+    void processPendingKernels() {
         Runtime* rt = runtime();
         if (!rt || !rt->logger) return;
 
-        KernelBeginEvent e;
-        e.pid = pid_;
-        e.app = rt->appName;
-        e.name = name_;
-        e.tag = std::move(tag);
-        e.tsStartNs = startTs_; // Maps to user's 'tsStartNs'
+        // Take a snapshot of the queue to iterate without blocking pushers too long
+        // OR just lock tightly. Since we only pop finished items, locking is fine.
+        std::unique_lock<std::mutex> lk(g_queueMutex);
 
-        // Populate Launch Params
-        e.grid = std::move(grid);
-        e.block = std::move(block);
-        e.dynSharedBytes = dynShared;
-        e.numRegs = numRegs;
-        e.staticSharedBytes = staticShared;
-        e.localBytes = localBytes;
-        e.constBytes = constBytes;
+        auto it = g_pendingQueue.begin();
+        while (it != g_pendingQueue.end()) {
+            PendingKernel& k = *it;
 
-        e.occupancy = occupancy;
-        e.maxActiveBlocks = maxActiveBlocks;
+            // KEY: Check if GPU has finished this kernel.
+            // cudaEventQuery is NON-BLOCKING.
 
-        if (rt->collector) e.devices = rt->collector->sampleAll();
-        if (rt->hostCollector) e.host = rt->hostCollector->sample();
+            if (const cudaError_t status = cudaEventQuery(k.stopEvent); status == cudaSuccess) {
+                // --- KERNEL FINISHED ---
 
-        rt->logger->logKernelBegin(e);
-    }
+                float durationMs = 0.0f;
+                cudaEventElapsedTime(&durationMs, k.startEvent, k.stopEvent);
 
-    KernelMonitor::~KernelMonitor() {
-        Runtime* rt = gpufl::runtime();
-        if (!rt || !rt->logger) return;
-        KernelEndEvent e;
-        e.pid = pid_;
-        e.app = rt->appName;
-        e.name = name_;
-        e.tsNs = detail::getTimestampNs();
-        e.tag = tag_;
-        e.devices = rt->collector ? rt->collector->sampleAll() : std::vector<DeviceSample>();
-        rt->logger->logKernelEnd(e);
+                const auto durationNs = static_cast<int64_t>(durationMs * 1'000'000.0);
+                const int64_t startTime = k.cpuDispatchNs;
+                const int64_t endTime = startTime + durationNs;
+
+                // Generate Start Event
+                {
+                    KernelBeginEvent e;
+                    e.pid = detail::getPid();
+                    e.app = rt->appName;
+                    e.name = k.name;
+                    e.tag = k.tag;
+                    e.tsNs = startTime;
+                    e.grid = k.grid;
+                    e.block = k.block;
+                    e.numRegs = k.numRegs;
+                    e.staticSharedBytes = k.staticShared;
+                    e.dynSharedBytes = k.dynShared;
+                    e.localBytes = k.localBytes;
+                    e.constBytes = k.constBytes;
+                    e.occupancy = k.occupancy;
+                    e.maxActiveBlocks = k.maxActiveBlocks;
+                    rt->logger->logKernelBegin(e);
+                }
+
+                // Generate END Event
+                {
+                    KernelEndEvent e;
+                    e.pid = detail::getPid();
+                    e.app = rt->appName;
+                    e.name = k.name;
+                    e.tag = k.tag;
+                    e.tsNs = endTime; // <--- The visualizer uses this for end time
+
+                    rt->logger->logKernelEnd(e);
+                }
+
+                // 3. Cleanup
+                returnEventPair(k.startEvent, k.stopEvent);
+
+                // Remove from queue and continue
+                it = g_pendingQueue.erase(it);
+            }
+            else if (status == cudaErrorNotReady) {
+                ++it;
+            }
+            else {
+                returnEventPair(k.startEvent, k.stopEvent);
+                it = g_pendingQueue.erase(it);
+            }
+        }
     }
 }

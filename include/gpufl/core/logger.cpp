@@ -244,11 +244,8 @@ namespace gpufl {
             << "\"type\":\"kernel_start\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
-            << ",\"host\":" << hostToJson(e.host)
-            << ",\"devices\":" << devicesToJson(e.devices)
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
-            << ",\"ts_start_ns\":" << e.tsStartNs
-            << ",\"ts_end_ns\":" << e.tsEndNs
+            << ",\"ts_ns\":" << e.tsNs
             << ",\"duration_ns\":" << e.durationNs
             << ",\"grid\":\"" << jsonEscape(e.grid) << "\""
             << ",\"block\":\"" << jsonEscape(e.block) << "\""
@@ -275,8 +272,6 @@ namespace gpufl {
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
-            << ",\"host\":" << hostToJson(e.host)
-            << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanKernel_->write(oss.str());
     }

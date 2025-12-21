@@ -59,8 +59,7 @@ namespace gpufl {
         std::string name;
         std::string tag;
 
-        int64_t tsStartNs = 0;
-        int64_t tsEndNs = 0;
+        int64_t tsNs = 0;
         int64_t durationNs = 0;
 
         std::string grid;
@@ -73,9 +72,6 @@ namespace gpufl {
         std::string cudaError;
         float occupancy = 0.0f;
         int maxActiveBlocks = 0;
-
-        HostSample host;
-        std::vector<DeviceSample> devices;
     };
 
     struct KernelEndEvent {
@@ -85,8 +81,6 @@ namespace gpufl {
         std::string tag;
         int64_t tsNs = 0;
         std::string cudaError;
-        HostSample host;
-        std::vector<DeviceSample> devices;
     };
 
     struct KernelSampleEvent {

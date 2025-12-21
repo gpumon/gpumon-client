@@ -9,10 +9,10 @@
 #if !defined(__CUDACC__)
   #error "gpufl/cuda/launch.hpp must be compiled with NVCC (__CUDACC__)"
 #endif
-#define GFL_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...) \
+#define GFL_LAUNCH_TAGGED(tagArg, kernel, gridArg, blockArg, sharedMem, stream, ...) \
     do { \
-        dim3 _gDim(grid); \
-        dim3 _bDim(block); \
+        dim3 _gDim(gridArg); \
+        dim3 _bDim(blockArg); \
         \
         auto& _attrs = gpufl::cuda::get_kernel_static_attrs(kernel); \
         std::string _gStr = gpufl::cuda::dim3ToString(_gDim); \
@@ -32,19 +32,29 @@
         } \
         \
         { \
-            gpufl::cuda::KernelMonitor _monitor(#kernel, tag, _gStr, _bStr, \
-                (int)(sharedMem), _attrs.numRegs, _attrs.sharedSizeBytes, \
-                _attrs.localSizeBytes, _attrs.constSizeBytes, \
-                _occupancy, _maxActiveBlocks); \
+            auto _events = gpufl::cuda::getEventPair(); \
+            gpufl::cuda::PendingKernel _pk; \
+            _pk.name = #kernel; \
+            _pk.tag = tagArg;   \
+            _pk.grid = _gStr;   \
+            _pk.block = _bStr;  \
+            _pk.cpuDispatchNs = gpufl::detail::getTimestampNs(); \
+            _pk.startEvent = _events.first; \
+            _pk.stopEvent = _events.second; \
+            _pk.numRegs = _attrs.numRegs; \
+            _pk.staticShared = _attrs.sharedSizeBytes; \
+            _pk.dynShared = (int)sharedMem; \
+            _pk.localBytes = _attrs.localSizeBytes; \
+            _pk.constBytes = _attrs.constSizeBytes; \
+            _pk.occupancy = _occupancy; \
+            _pk.maxActiveBlocks = _maxActiveBlocks; \
+            _pk.deviceId = _dev; \
             \
-            kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
+            cudaEventRecord(_pk.startEvent, stream); \
+            kernel<<<gridArg, blockArg, sharedMem, stream>>>(__VA_ARGS__); \
+            cudaEventRecord(_pk.stopEvent, stream); \
             \
-            cudaError_t _err = cudaGetLastError(); \
-            if (_err == cudaSuccess) { \
-                cudaError_t _syncErr = cudaDeviceSynchronize(); \
-                if (_syncErr != cudaSuccess) _err = _syncErr; \
-            } \
-            _monitor.setError(cudaGetErrorString(_err)); \
+            gpufl::cuda::pushPendingKernel(std::move(_pk)); \
         } \
     } while(0)
 
