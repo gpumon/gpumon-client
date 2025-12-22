@@ -3,7 +3,7 @@
 #include "gpufl/gpufl.hpp"
 #include "gpufl/core/common.hpp"
 #include "gpufl/cuda/cuda.hpp"
-#include "gpufl/cuda/launch.hpp"
+#include "gpufl/core/monitor.hpp"
 
 __global__
 void vectorAdd(int* a, int* b, int* c, int n) {
@@ -31,15 +31,16 @@ void vectorScale(int* a, int scale, int n) {
 
 int main() {
     // Initialize GFL
+    std::cout << "started..." << std::endl;
     gpufl::InitOptions opts;
     opts.appName = "block_style_demo";
     opts.logPath = "gfl_block.log";
     opts.systemSampleRateMs = 10;
-    
     if (!gpufl::init(opts)) {
         std::cerr << "Failed to initialize gpufl" << std::endl;
         return 1;
     }
+    gpufl::systemStart();
     
     std::cout << "=== GPUFl Block-Style API Demo ===" << std::endl;
     std::cout << "Logs: " << opts.logPath << "\n" << std::endl;
@@ -85,12 +86,12 @@ int main() {
     std::cout << "   ✓ Scope automatically closed\n" << std::endl;
 
     // ========================================================================
-    // ScopedMonitor RAII object
+    // ScopedRange RAII object
     // ========================================================================
-    std::cout << "Using ScopedMonitor (RAII object)..." << std::endl;
+    std::cout << "Using ScopedRange (RAII object)..." << std::endl;
     
     {
-        gpufl::ScopedMonitor monitor("training-epoch-1");
+        gpufl::ScopedRange range("training-epoch-1");
         
         vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
         cudaDeviceSynchronize();
@@ -98,10 +99,10 @@ int main() {
         vectorMul<<<grid, block>>>(d_a, d_b, d_c, n);
         cudaDeviceSynchronize();
         
-        // Monitor automatically ends when going out of scope
+        // Range automatically ends when going out of scope
     }
     
-    std::cout << "   ✓ Monitor destroyed, scope logged\n" << std::endl;
+    std::cout << "   ✓ Range destroyed, scope logged\n" << std::endl;
     
     // ========================================================================
     // Method 4: Lambda-based functional style
@@ -116,13 +117,15 @@ int main() {
     std::cout << "   ✓ Lambda executed and monitored\n" << std::endl;
     
     // ========================================================================
-    // Method 5: Traditional GFL_LAUNCH (auto-sync, auto-time)
+    // Method 5: Automatic Kernel Monitoring (CUPTI)
     // ========================================================================
-    std::cout << "5. Using GFL_LAUNCH (traditional)..." << std::endl;
+    std::cout << "5. Automatic Kernel Monitoring (CUPTI)..." << std::endl;
+    std::cout << "   (No macros needed, just standard kernel launches)" << std::endl;
     
-    GFL_LAUNCH(vectorAdd, grid, block, 0, 0, d_a, d_b, d_c, n);
+    vectorAdd<<<grid, block>>>(d_a, d_b, d_c, n);
+    cudaDeviceSynchronize();
     
-    std::cout << "   ✓ Kernel launched with automatic timing\n" << std::endl;
+    std::cout << "   ✓ Kernel launched and automatically timed by CUPTI\n" << std::endl;
     
     // ========================================================================
     // Method 6: Nested scopes
