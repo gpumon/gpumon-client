@@ -35,7 +35,6 @@ int main() {
     opts.appName = "block_style_demo";
     opts.logPath = "gfl_block.log";
     opts.systemSampleRateMs = 10;
-    std::cout << "started..." << std::endl;
     if (!gpufl::init(opts)) {
         std::cerr << "Failed to initialize gpufl" << std::endl;
         return 1;

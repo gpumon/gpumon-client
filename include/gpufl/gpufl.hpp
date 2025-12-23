@@ -22,8 +22,8 @@ namespace gpufl {
         std::string logPath = "";     // if empty, will default to "<app>.log"
         int systemSampleRateMs = 0;
         BackendKind backend = BackendKind::Auto;
-        bool enable_kernel_details = false;
-        bool enable_debug_output = false;
+        bool enableKernelDetails = false;
+        bool enableDebugOutput = false;
     };
 
     struct BackendProbeResult {

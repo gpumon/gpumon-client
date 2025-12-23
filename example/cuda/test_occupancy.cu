@@ -13,7 +13,6 @@ __global__ void vector_add(const float* a, const float* b, float* c, int n) {
 }
 
 int main() {
-    std::cout << "started..." << std::endl;
     // [2] Initialize GPUFL
     if (!gpufl::init({"OccupancyTest", "gpufl_test.log", 10})) {
         std::cerr << "ERROR: Failed to initialize GPUFL" << std::endl;
