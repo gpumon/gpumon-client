@@ -2,6 +2,7 @@
 #include "gpufl/core/ring_buffer.hpp"
 #include "gpufl/core/common.hpp"
 #include "gpufl/core/trace_type.hpp"
+#include "gpufl/core/debug_logger.hpp"
 #include "gpufl/cuda/cuda.hpp"
 
 #include <iostream>
@@ -11,7 +12,7 @@
     do { \
         CUptiResult res = (call); \
         if (res != CUPTI_SUCCESS) { \
-            std::cerr << (failMsg) << std::endl; \
+            ::gpufl::DebugLogger::error("[GPUFL Monitor] ", (failMsg)); \
         } \
     } while(0)
 
@@ -19,7 +20,7 @@
     do { \
         CUptiResult res = (call); \
         if (res != CUPTI_SUCCESS) { \
-            std::cerr << (failMsg) << std::endl; \
+            ::gpufl::DebugLogger::error("[GPUFL Monitor] ", (failMsg)); \
             return; \
         } \
     } while(0)
@@ -33,11 +34,10 @@ namespace gpufl {
 
     void CuptiBackend::Initialize(const MonitorOptions &opts) {
         opts_ = opts;
+        DebugLogger::setEnabled(opts_.enable_debug_output);
 
         g_activeBackend.store(this, std::memory_order_release);
-        if (opts_.enable_debug_output) {
-            std::cout << "[GPUFL Monitor] Subscribing to CUPTI..." << std::endl;
-        }
+        GFL_LOG_DEBUG("Subscribing to CUPTI...");
         CUPTI_CHECK_RETURN(
             cuptiSubscribe(&subscriber_, reinterpret_cast<CUpti_CallbackFunc>(GflCallback), this),
             "[GPUFL Monitor] ERROR: Failed to subscribe to CUPTI\n"
@@ -46,9 +46,7 @@ namespace gpufl {
             "  - Insufficient permissions\n"
             "  - CUDA driver issues"
         );
-        if (opts_.enable_debug_output) {
-            std::cout << "[GPUFL Monitor] CUPTI subscription successful" << std::endl;
-        }
+        GFL_LOG_DEBUG("CUPTI subscription successful");
 
         // Enable resource domain immediately to catch context creation
         cuptiEnableDomain(1, subscriber_, CUPTI_CB_DOMAIN_RESOURCE);
@@ -59,18 +57,15 @@ namespace gpufl {
         if (resCb != CUPTI_SUCCESS) {
             const char* errStr = nullptr;
             cuptiGetResultString(resCb, &errStr);
-            std::cerr << "[GPUFL Monitor] FATAL: Failed to register activity callbacks." << std::endl;
-            std::cerr << "[GPUFL Monitor] Error: " << (errStr ? errStr : "unknown")
-                      << " (Code " << resCb << ")" << std::endl;
+            GFL_LOG_ERROR("FATAL: Failed to register activity callbacks.");
+            GFL_LOG_ERROR("Error: ", (errStr ? errStr : "unknown"), " (Code ", resCb, ")");
 
             initialized_ = false;
             return;
         }
 
         initialized_ = true;
-        if (opts_.enable_debug_output) {
-            std::cout << "[GPUFL Monitor] Callbacks registered successfully." << std::endl;
-        }
+        GFL_LOG_DEBUG("Callbacks registered successfully.");
     }
 
     void CuptiBackend::Shutdown() {
@@ -100,9 +95,7 @@ namespace gpufl {
             cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
         }
 
-        if (opts_.enable_debug_output) {
-            std::cout << "[GPUFL Monitor] Start complete" << std::endl;
-        }
+        GFL_LOG_DEBUG("Start complete");
     }
 
     void CuptiBackend::Stop() {
@@ -127,14 +120,12 @@ namespace gpufl {
                                                 const size_t validSize) {
         auto* backend = g_activeBackend.load(std::memory_order_acquire);
         if (!backend) {
-            std::cerr << "[CUPTI] BufferCompleted: No active backend!" << std::endl;
+            ::gpufl::DebugLogger::error("[CUPTI] ", "BufferCompleted: No active backend!");
             if (buffer) free(buffer);
             return;
         }
 
-        if (backend->GetOptions().enable_debug_output) {
-            std::cout << "[CUPTI] BufferCompleted validSize=" << validSize << std::endl;
-        }
+        GFL_LOG_DEBUG("[CUPTI] BufferCompleted validSize=", validSize);
         CUpti_Activity *record = nullptr;
 
         static int64_t baseCpuNs = detail::getTimestampNs();
@@ -177,20 +168,16 @@ namespace gpufl {
                                     out.constBytes = m.constBytes;
                                     out.occupancy = m.occupancy;
                                     out.maxActiveBlocks = m.maxActiveBlocks;
-                                    if (backend->GetOptions().enable_debug_output) {
-                                        std::cout << "[BufferCompleted] Found metadata for CorrID " << corr
-                                                  << " with occupancy=" << out.occupancy << std::endl;
-                                    }
+                                    GFL_LOG_DEBUG("[BufferCompleted] Found metadata for CorrID ", corr,
+                                                  " with occupancy=", out.occupancy);
                                 } else {
-                                    if (backend->GetOptions().enable_debug_output) {
-                                        std::cout << "[BufferCompleted] Found metadata for CorrID " << corr
-                                                  << " but hasDetails=false" << std::endl;
-                                    }
+                                    GFL_LOG_DEBUG("[BufferCompleted] Found metadata for CorrID ", corr,
+                                                  " but hasDetails=false");
                                 }
 
                                 backend->metaByCorr_.erase(it);
                             } else {
-                                std::cout << "[BufferCompleted] No metadata found for CorrID " << corr << std::endl;
+                                GFL_LOG_DEBUG("[BufferCompleted] No metadata found for CorrID ", corr);
                             }
                         }
 
@@ -200,7 +187,7 @@ namespace gpufl {
                     // No more records in this buffer
                     break;
                 } else {
-                    std::cerr << "[CUPTI] Error parsing buffer: " << st << std::endl;
+                    ::gpufl::DebugLogger::error("[CUPTI] ", "Error parsing buffer: ", st);
                     break;
                 }
             }
@@ -222,22 +209,21 @@ namespace gpufl {
         const char* symbName = cbInfo->symbolName ? cbInfo->symbolName : "unknown";
 
         if (domain == CUPTI_CB_DOMAIN_RUNTIME_API || domain == CUPTI_CB_DOMAIN_DRIVER_API) {
-            std::cout << "[DEBUG-CALLBACK] Domain=" << (int)domain
-                      << " CBID=" << cbid
-                      << " Name=" << funcName
-                      << " Symb=" << symbName
-                      << " CorrID=" << cbInfo->correlationId
-                      << std::endl;
+            GFL_LOG_DEBUG("[DEBUG-CALLBACK] Domain=", (int)domain,
+                          " CBID=", cbid,
+                          " Name=", funcName,
+                          " Symb=", symbName,
+                          " CorrID=", cbInfo->correlationId);
         }
         if (domain == CUPTI_CB_DOMAIN_RESOURCE && cbid == CUPTI_CBID_RESOURCE_CONTEXT_CREATED) {
-            std::cout << "[DEBUG-CALLBACK] Context Created! Enabling Runtime/Driver domains..." << std::endl;
+            GFL_LOG_DEBUG("[DEBUG-CALLBACK] Context Created! Enabling Runtime/Driver domains...");
             cuptiEnableDomain(1, backend->GetSubscriber(), CUPTI_CB_DOMAIN_RUNTIME_API);
             cuptiEnableDomain(1, backend->GetSubscriber(), CUPTI_CB_DOMAIN_DRIVER_API);
             return;
         }
 
         if (!backend->IsActive()) {
-            std::cout << "[DEBUG-CALLBACK] Backend not active, skipping callback." << std::endl;
+            GFL_LOG_DEBUG("[DEBUG-CALLBACK] Backend not active, skipping callback.");
             return;
         };
         if (domain == CUPTI_CB_DOMAIN_STATE) return;
@@ -264,8 +250,8 @@ namespace gpufl {
             }
         }
         if (isKernelLaunch) {
-            std::cout << "[DEBUG-CALLBACK] >>> KERNEL LAUNCH DETECTED <<< (CorrID "
-                      << cbInfo->correlationId << ")" << std::endl;
+            GFL_LOG_DEBUG("[DEBUG-CALLBACK] >>> KERNEL LAUNCH DETECTED <<< (CorrID ",
+                          cbInfo->correlationId, ")");
         }
 
         if (!isKernelLaunch) return;
@@ -304,10 +290,8 @@ namespace gpufl {
             // If the existing entry has details, but the new one (e.g. from Driver API) does not,
             // KEEP the existing one. Do not overwrite it.
             if (existing.hasDetails && !meta.hasDetails) {
-                if (backend->GetOptions().enable_debug_output) {
-                    std::cout << "[DEBUG-CALLBACK] Skipping overwrite of rich metadata for CorrID "
-                              << cbInfo->correlationId << " by Driver API." << std::endl;
-                }
+                GFL_LOG_DEBUG("[DEBUG-CALLBACK] Skipping overwrite of rich metadata for CorrID ",
+                              cbInfo->correlationId, " by Driver API.");
             } else {
                 // Otherwise (it's new, or the new one has details and the old one didn't), update it.
                 existing = meta;

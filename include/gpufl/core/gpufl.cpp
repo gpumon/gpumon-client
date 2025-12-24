@@ -10,6 +10,7 @@
 #include "gpufl/core/logger.hpp"
 #include "gpufl/core/common.hpp"
 #include "gpufl/core/monitor.hpp"
+#include "gpufl/core/debug_logger.hpp"
 #include "gpufl/backends/host_collector.hpp"
 
 #if GPUFL_HAS_CUDA || defined(__CUDACC__)
@@ -90,13 +91,10 @@ namespace gpufl {
     }
 
     bool init(const InitOptions& opts) {
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Initializing..." << std::endl;
-        }
+        DebugLogger::setEnabled(opts.enableDebugOutput);
+        GFL_LOG_DEBUG("Initializing...");
         if (runtime()) {
-            if (opts.enableDebugOutput) {
-                std::cout << "[GPUFL] Runtime already exists, shutting down first..." << std::endl;
-            }
+            GFL_LOG_DEBUG("Runtime already exists, shutting down first...");
             shutdown();
         }
 
@@ -116,31 +114,24 @@ namespace gpufl {
 
         g_systemSampleRateMs.store(opts.systemSampleRateMs, std::memory_order_relaxed);
 
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Opening log file: " << logPath << std::endl;
-        }
+        GFL_LOG_DEBUG("Opening log file: ", logPath);
         if (!rt->logger->open(logOpts)) {
-            std::cerr << "[GPUFL] ERROR: Failed to open logger at: " << logPath << std::endl;
+            GFL_LOG_ERROR("Failed to open logger at: ", logPath);
             return false;
         }
 
         set_runtime(std::move(rt));
         rt = nullptr; // rt is now moved
 
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Initializing Monitor (CUPTI)..." << std::endl;
-        }
+        GFL_LOG_DEBUG("Initializing Monitor (CUPTI)...");
         MonitorOptions mOpts;
         mOpts.collect_kernel_details = opts.enableKernelDetails;
         mOpts.enable_debug_output = opts.enableDebugOutput;
         Monitor::Initialize(mOpts);
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Starting Monitor..." << std::endl;
-        }
+
+        GFL_LOG_DEBUG("Starting Monitor...");
         Monitor::Start();
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Monitor started" << std::endl;
-        }
+        GFL_LOG_DEBUG("Monitor started");
 
         Runtime* rt_ptr = runtime();
 
@@ -167,9 +158,7 @@ namespace gpufl {
             rt_ptr->sampler.start(rt_ptr->appName, rt_ptr->logger, rt_ptr->collector, opts.systemSampleRateMs, rt_ptr->appName);
         }
 
-        if (opts.enableDebugOutput) {
-            std::cout << "[GPUFL] Initialization complete!" << std::endl;
-        }
+        GFL_LOG_DEBUG("Initialization complete!");
         return true;
     }
 

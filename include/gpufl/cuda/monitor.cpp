@@ -4,6 +4,7 @@
 #include "gpufl/core/ring_buffer.hpp"
 #include "gpufl/core/common.hpp"
 #include "gpufl/core/logger.hpp"
+#include "gpufl/core/debug_logger.hpp"
 #include "gpufl/core/runtime.hpp"
 #include "gpufl/cuda/cuda.hpp"
 
@@ -124,6 +125,8 @@ namespace gpufl {
 
     void Monitor::Initialize(const MonitorOptions& opts) {
         if (g_initialized.exchange(true)) return;
+
+        DebugLogger::setEnabled(opts.enable_debug_output);
 
 #if defined(GPUFL_HAS_CUDA)
         g_backend = std::make_unique<CuptiBackend>();
