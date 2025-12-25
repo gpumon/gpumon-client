@@ -42,6 +42,7 @@ target_sources(gpufl PRIVATE
     include/gpufl/core/runtime.cpp
     include/gpufl/core/gpufl.cpp
     include/gpufl/core/common.cpp
+    include/gpufl/core/debug_logger.cpp
 )
 
 set(GPUFL_HAS_CUDA 0)
@@ -64,7 +65,6 @@ if(GPUFL_ENABLE_NVIDIA)
         if(CUDAToolkit_FOUND)
             set(GPUFL_HAS_CUDA 1)
             target_sources(gpufl PRIVATE
-                include/gpufl/cuda/cuda.cpp
                 include/gpufl/cuda/monitor.cpp
                 include/gpufl/cuda/cupti_backend.cpp)
             target_compile_definitions(gpufl PUBLIC GPUFL_HAS_CUDA=1)

@@ -1,4 +1,5 @@
 #include "gpufl/core/logger.hpp"
+#include "gpufl/core/debug_logger.hpp"
 #include <sstream>
 #include <memory>
 #include <iostream>
@@ -114,7 +115,7 @@ namespace gpufl {
         stream_.open(p, std::ios::out | std::ios::app);
 
         if (!stream_.good()) {
-            std::cerr << "[GPUFL] ERROR: Failed to open log file: " << p.string() << std::endl;
+            GFL_LOG_ERROR("Failed to open log file: ", p.string());
         } else {
             currentBytes_ = 0;
         }
@@ -258,6 +259,7 @@ namespace gpufl {
             << ",\"const_bytes\":" << e.constBytes
             << ",\"occupancy\":" << e.occupancy
             << ",\"max_active_blocks\":" << e.maxActiveBlocks
+            << ",\"corr_id\":" << e.corrId
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
             << "}";
         chanKernel_->write(oss.str());
@@ -271,8 +273,8 @@ namespace gpufl {
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
-            << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"corr_id\":" << e.corrId
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
             << "}";
         chanKernel_->write(oss.str());
