@@ -20,8 +20,9 @@ namespace gpufl {
     struct InitOptions {
         std::string appName = "gpufl";
         std::string logPath = "";     // if empty, will default to "<app>.log"
-        int systemSampleRateMs = 0;
+        int systemSampleRateMs = 0; // currently less than 50-100 would not be effective.
         BackendKind backend = BackendKind::Auto;
+        bool samplingAutoStart = false;
         bool enableKernelDetails = false;
         bool enableDebugOutput = false;
     };
@@ -31,6 +32,7 @@ namespace gpufl {
         std::string reason;
     };
 
+    static InitOptions g_opts;
     BackendProbeResult probeNvml();
     BackendProbeResult probeRocm();
 

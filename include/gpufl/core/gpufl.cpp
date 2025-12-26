@@ -91,6 +91,7 @@ namespace gpufl {
     }
 
     bool init(const InitOptions& opts) {
+        g_opts = opts;
         DebugLogger::setEnabled(opts.enableDebugOutput);
         GFL_LOG_DEBUG("Initializing...");
         if (runtime()) {
@@ -111,8 +112,6 @@ namespace gpufl {
         Logger::Options logOpts;
         logOpts.basePath = logPath;
         logOpts.systemSampleRateMs = opts.systemSampleRateMs;
-
-        g_systemSampleRateMs.store(opts.systemSampleRateMs, std::memory_order_relaxed);
 
         GFL_LOG_DEBUG("Opening log file: ", logPath);
         if (!rt->logger->open(logOpts)) {
@@ -154,7 +153,7 @@ namespace gpufl {
         rt_ptr->logger->logInit(ie);
 
         // Start sampler if enabled and collector exists
-        if (opts.systemSampleRateMs > 0 && rt_ptr->collector) {
+        if (opts.samplingAutoStart && opts.systemSampleRateMs > 0 && rt_ptr->collector) {
             rt_ptr->sampler.start(rt_ptr->appName, rt_ptr->logger, rt_ptr->collector, opts.systemSampleRateMs, rt_ptr->appName);
         }
 
@@ -176,13 +175,12 @@ namespace gpufl {
             if (rt->hostCollector) e.host = rt->hostCollector->sample();
             rt->logger->logSystemStart(e);
         }
-        if (const int intervalMs = g_systemSampleRateMs.load(std::memory_order_relaxed); intervalMs > 0 && rt->collector) {
-            rt->sampler.start(rt->appName, rt->logger, rt->collector, intervalMs, name);
+        if (g_opts.systemSampleRateMs > 0 && rt->collector) {
+            rt->sampler.start(rt->appName, rt->logger, rt->collector, g_opts.systemSampleRateMs, name);
         }
     }
 
     void systemStop(std::string name) {
-        Monitor::Stop();
         Runtime* rt = runtime();
         if (!rt || !rt->logger) return;
 
@@ -199,6 +197,7 @@ namespace gpufl {
     }
 
     void shutdown() {
+        Monitor::Stop();
         Monitor::Shutdown();
         Runtime* rt = runtime();
         if (!rt) return;
@@ -235,9 +234,6 @@ namespace gpufl {
         e.tsNs = startTs_;
         e.scopeId = scopeId_;
 
-        if (rt->collector) {
-            e.devices = rt->collector->sampleAll();
-        }
         if (rt->hostCollector) e.host = rt->hostCollector->sample();
         rt->logger->logScopeBegin(e);
     }
@@ -254,9 +250,6 @@ namespace gpufl {
         e.tsNs = detail::getTimestampNs();
         e.scopeId = scopeId_;
 
-        if (rt->collector) {
-            e.devices = rt->collector->sampleAll();
-        }
         if (rt->hostCollector) e.host = rt->hostCollector->sample();
 
         rt->logger->logScopeEnd(e);

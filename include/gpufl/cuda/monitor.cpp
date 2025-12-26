@@ -180,7 +180,7 @@ namespace gpufl {
         RecordStop(handle, nullptr);
     }
 
-    void Monitor::RecordStart(const char* name, cudaStream_t stream, TraceType type, void** outHandle) {
+    void Monitor::RecordStart(const char* name, const cudaStream_t stream, const TraceType type, void** outHandle) {
         auto* rec = new ActivityRecord();
         strncpy(rec->name, name, 127);
         rec->type = type;

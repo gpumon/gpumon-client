@@ -32,27 +32,31 @@ PYBIND11_MODULE(_gpufl_client, m) {
         .def(py::init<>())
         .def_readwrite("appName", &gpufl::InitOptions::appName)
         .def_readwrite("logPath", &gpufl::InitOptions::logPath)
+		.def_readwrite("samplingAutoStart", &gpufl::InitOptions::samplingAutoStart)
         .def_readwrite("systemSampleRateMs", &gpufl::InitOptions::systemSampleRateMs)
         .def_readwrite("enableKernelDetails", &gpufl::InitOptions::enableKernelDetails)
         .def_readwrite("enableDebugOutput", &gpufl::InitOptions::enableDebugOutput);
 
     m.def("init", [](std::string app_name,
                  std::string log_path,
-                 int intervals_ms,
+				 bool sampling_auto_start,
+                 int system_sample_rate_ms,
                  bool enable_kernel_details,
                  bool enable_debug_output)->bool {
 
         gpufl::InitOptions opts;
         opts.appName = app_name;
         opts.logPath = log_path;
-        opts.systemSampleRateMs = intervals_ms;
+		opts.samplingAutoStart = sampling_auto_start;
+        opts.systemSampleRateMs = system_sample_rate_ms;
         opts.enableKernelDetails = enable_kernel_details;
         opts.enableDebugOutput = enable_debug_output;
 
         return gpufl::init(opts);
     }, py::arg("app_name"),
        py::arg("log_path") = "",
-       py::arg("intervals_ms") = 0,
+	   py::arg("sampling_auto_start") = false,
+       py::arg("system_sample_rate_ms") = 0,
        py::arg("enable_kernel_details") = false,
        py::arg("enable_debug_output") = false);
 

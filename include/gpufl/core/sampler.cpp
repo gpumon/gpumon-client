@@ -50,7 +50,11 @@ namespace gpufl {
     }
 
     void Sampler::runLoop_() const {
+        using clock = std::chrono::steady_clock;
+        auto interval = std::chrono::milliseconds(intervalMs_);
+        auto next_wake_time = clock::now();
         while (running_.load()) {
+            next_wake_time += interval;
             const int64_t ts = detail::getTimestampNs();
             SystemSampleEvent e;
             e.pid = detail::getPid();
@@ -61,7 +65,7 @@ namespace gpufl {
             logger_->logSystemSample(e);
 
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs_));
+            std::this_thread::sleep_until(next_wake_time);
         }
     }
 }
