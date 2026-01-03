@@ -231,7 +231,7 @@ namespace gpufl {
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
-            << ",\"logPath\":\"" << jsonEscape(e.logPath) << "\""
+            << ",\"log_path\":\"" << jsonEscape(e.logPath) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"system_rate_ms\":" << opt_.systemSampleRateMs
             << ",\"host\":" << hostToJson(e.host)
