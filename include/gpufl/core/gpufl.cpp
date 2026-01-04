@@ -267,6 +267,13 @@ namespace gpufl {
         e.tag = tag_;
         e.tsNs = startTs_;
         e.scopeId = scopeId_;
+        e.scopeDepth = g_threadScopeStack.size();
+        if (!g_threadScopeStack.empty()) {
+            e.userScope = g_threadScopeStack.back();
+        } else {
+            e.userScope = name_;
+        }
+        g_threadScopeStack.push_back(name_);
 
         if (rt->hostCollector) e.host = rt->hostCollector->sample();
         rt->logger->logScopeBegin(e);
@@ -279,6 +286,9 @@ namespace gpufl {
         const Runtime* rt = runtime();
         if (!rt || !rt->logger) return;
 
+        if (!g_threadScopeStack.empty()) {
+            g_threadScopeStack.pop_back();
+        }
         ScopeEndEvent e;
         e.pid = pid_;
         e.app = rt->appName;
@@ -287,11 +297,18 @@ namespace gpufl {
         e.tag = tag_;
         e.tsNs = detail::getTimestampNs();
         e.scopeId = scopeId_;
+        e.scopeDepth = g_threadScopeStack.size();
+        if (!g_threadScopeStack.empty()) {
+            e.userScope = g_threadScopeStack.back();
+        } else {
+            e.userScope = name_;
+        }
 
         if (rt->hostCollector) e.host = rt->hostCollector->sample();
 
         rt->logger->logScopeEnd(e);
 
         Monitor::EndProfilerScope(name_.c_str());
+
     }
 } // namespace gpufl

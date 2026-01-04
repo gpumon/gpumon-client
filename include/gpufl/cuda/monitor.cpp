@@ -62,6 +62,8 @@ namespace gpufl {
                         be.app = rt->appName;
                         be.name = rec.name;
                         be.tsNs = rec.cpuStartNs;
+                        be.userScope = rec.userScope;
+                        be.scopeDepth = rec.scopeDepth;
                         be.corrId = rec.corrId;
                         if (rec.hasDetails) {
                             be.grid = "(" + std::to_string(rec.gridX) + "," + std::to_string(rec.gridY) + "," + std::to_string(rec.gridZ) + ")";
@@ -80,9 +82,10 @@ namespace gpufl {
                         ee.pid = detail::getPid();
                         ee.app = rt->appName;
                         ee.sessionId = rt->sessionId;
-                        ee.corrId = rec.corrId;
                         ee.name = rec.name;
                         ee.tsNs = rec.cpuStartNs + durationNs;
+                        ee.scopeDepth = rec.scopeDepth;
+                        ee.userScope = rec.userScope;
                         rt->logger->logKernelEnd(ee);
                     } else if (rec.type == TraceType::RANGE) {
                         ScopeBeginEvent be;

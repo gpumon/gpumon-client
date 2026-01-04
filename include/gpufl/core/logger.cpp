@@ -280,6 +280,8 @@ namespace gpufl {
             << ",\"has_details\":" << std::boolalpha << e.hasDetails
             << ",\"device_id\":\"" << e.deviceId << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"user_scope\":\"" << jsonEscape(e.userScope) << "\""
+            << ",\"scope_depth\":" << e.scopeDepth
             << ",\"duration_ns\":" << e.durationNs
             << ",\"grid\":\"" << jsonEscape(e.grid) << "\""
             << ",\"block\":\"" << jsonEscape(e.block) << "\""
@@ -306,6 +308,8 @@ namespace gpufl {
             << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"user_scope\":\"" << jsonEscape(e.userScope) << "\""
+            << ",\"scope_depth\":" << e.scopeDepth
             << ",\"corr_id\":" << e.corrId
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
             << "}";
@@ -323,6 +327,8 @@ namespace gpufl {
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"user_scope\":\"" << jsonEscape(e.userScope) << "\""
+            << ",\"scope_depth\":" << e.scopeDepth
             << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
@@ -340,6 +346,8 @@ namespace gpufl {
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"user_scope\":\"" << jsonEscape(e.userScope) << "\""
+            << ",\"scope_depth\":" << e.scopeDepth
             << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";

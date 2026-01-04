@@ -93,6 +93,9 @@ namespace gpufl {
         float occupancy = 0.0f;
         int maxActiveBlocks = 0;
         int32_t corrId = 0;
+
+        std::string userScope;
+        int scopeDepth = 0;
     };
 
     struct KernelEndEvent {
@@ -103,6 +106,9 @@ namespace gpufl {
         int64_t tsNs = 0;
         std::string cudaError;
         int32_t corrId = 0;
+
+        std::string userScope;
+        int scopeDepth = 0;
     };
 
     struct ProfileSampleEvent {
@@ -131,6 +137,9 @@ namespace gpufl {
 
         HostSample host;
         std::vector<DeviceSample> devices;
+
+        std::string userScope;
+        int scopeDepth = 0;
     };
 
     struct ScopeEndEvent {
@@ -144,6 +153,9 @@ namespace gpufl {
 
         HostSample host;
         std::vector<DeviceSample> devices;
+
+        std::string userScope;
+        int scopeDepth = 0;
     };
 
     struct SystemStartEvent {
