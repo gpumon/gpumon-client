@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "gpufl/backends/nvidia/cuda_collector.hpp"
+#include "gpufl/core/scope_registry.hpp"
 
 #define CUPTI_CHECK(call) \
     do { \
@@ -440,6 +441,9 @@ namespace gpufl {
                             if (auto it = backend->metaByCorr_.find(corr); it != backend->metaByCorr_.end()) {
                                 const LaunchMeta &m = it->second;
 
+                                out.scopeDepth = m.scopeDepth;
+                                std::copy(std::begin(m.userScope), std::end(m.userScope), std::begin(out.userScope));
+
                                 if (m.hasDetails) {
                                     out.hasDetails = true;
                                     out.gridX = m.gridX; out.gridY = m.gridY; out.gridZ = m.gridZ;
@@ -577,6 +581,17 @@ namespace gpufl {
                                  : cbInfo->functionName;
             if (!nm) nm = "kernel_launch";
             std::snprintf(meta.name, sizeof(meta.name), "%s", nm);
+
+            if (!gpufl::g_threadScopeStack.empty()) {
+                const std::string& currentScope = gpufl::g_threadScopeStack.back();
+                std::snprintf(meta.userScope, sizeof(meta.userScope), "%s", currentScope.c_str());
+
+                // Optional: Capture Depth
+                meta.scopeDepth = gpufl::g_threadScopeStack.size();
+            } else {
+                std::snprintf(meta.userScope, sizeof(meta.name), "%s", nm);
+                meta.scopeDepth = 0;
+            }
 
             if (backend->getOptions().collect_kernel_details &&
                 domain == CUPTI_CB_DOMAIN_RUNTIME_API &&

@@ -44,6 +44,9 @@ namespace gpufl {
         uint32_t samplesCount;
         uint32_t stallReason;
         char deviceName[64];
+
+        char userScope[256]{};
+        int scopeDepth{};
     };
 
     struct LaunchMeta {
@@ -56,6 +59,8 @@ namespace gpufl {
         float occupancy=0.0f;
         int maxActiveBlocks=0;
         char name[128]{};
+        char userScope[256]{};
+        int scopeDepth{};
     };
 
     struct SourceLocation {
