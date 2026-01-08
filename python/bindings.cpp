@@ -58,11 +58,11 @@ PYBIND11_MODULE(_gpufl_client, m) {
         return gpufl::init(opts);
     }, py::arg("app_name"),
        py::arg("log_path") = "",
-	   py::arg("sampling_auto_start") = false,
-       py::arg("system_sample_rate_ms") = 0,
-       py::arg("enable_kernel_details") = false,
+	   py::arg("sampling_auto_start") = true,
+       py::arg("system_sample_rate_ms") = 50,
+       py::arg("enable_kernel_details") = true,
        py::arg("enable_debug_output") = false,
-       py::arg("enable_stack_trace") = false);
+       py::arg("enable_stack_trace") = true);
 
     m.def("system_start", [](std::string name) { gpufl::systemStart(std::move(name)); },
         py::arg("name") = "system");

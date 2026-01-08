@@ -32,6 +32,10 @@ viz = [
     "pandas>=1.5",
     "matplotlib>=3.7"
 ]
+analyzer = [
+    "pandas >= 1.5",
+    "rich"
+]
 
 [tool.scikit-build]
 cmake.args = ["-DCMAKE_BUILD_TYPE=Release"]

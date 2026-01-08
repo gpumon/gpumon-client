@@ -15,7 +15,7 @@ def run_stress_test():
 
     # 1. Init GpuFlight
     # 15ms is the fastest reliable timer on Windows
-    gpufl.init("Heavy_Stress_App", "./stress", 15)
+    gpufl.init("Heavy_Stress_App", "./stress", True, 15, True)
 
     try:
         # 2. Allocate (Uses approx 3GB VRAM)
