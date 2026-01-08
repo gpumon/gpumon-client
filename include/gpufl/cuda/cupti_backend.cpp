@@ -74,6 +74,37 @@ namespace gpufl {
         return cache[deviceId];
     }
 
+    static void CalculateOccupancy(LaunchMeta& meta, const void* funcPtr) {
+        int deviceId = 0;
+        cudaGetDevice(&deviceId); // Get current device for this thread
+
+        int maxActiveBlocks = 0;
+        int blockSize = meta.blockX * meta.blockY * meta.blockZ;
+
+        // Ask the driver: "Given this function pointer and block size, how many blocks fit?"
+        cudaError_t err = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocks,
+            funcPtr, // The kernel function pointer
+            blockSize,
+            meta.dynShared
+        );
+
+        if (err == cudaSuccess) {
+            int maxThreadsPerSM = GetMaxThreadsPerSM(deviceId);
+
+            // Theoretical Occupancy = (Active Warps) / (Max Warps)
+            if (maxThreadsPerSM > 0) {
+                meta.occupancy = static_cast<float>(maxActiveBlocks * blockSize) / static_cast<float>(maxThreadsPerSM);
+            }
+            meta.maxActiveBlocks = maxActiveBlocks;
+
+            GFL_LOG_DEBUG("Occupancy: ", meta.occupancy * 100.0f, "% (", maxActiveBlocks, " blocks/SM)");
+        } else {
+            meta.occupancy = 0.0f;
+            meta.maxActiveBlocks = 0;
+        }
+    }
+
     void CuptiBackend::initialize(const MonitorOptions &opts) {
         opts_ = opts;
         if (opts_.isProfiling) {
@@ -644,36 +675,24 @@ namespace gpufl {
                 meta.blockZ = params->blockDim.z;
                 meta.dynShared = static_cast<int>(params->sharedMem);
 
-                // occupancy calculation
-                {
-                    int deviceId = 0;
-                    cudaGetDevice(&deviceId); // Get current device for this thread
+                CalculateOccupancy(meta, params->func);
+            } else if (backend->getOptions().collectKernelDetails &&
+                domain == CUPTI_CB_DOMAIN_DRIVER_API &&
+                cbInfo->functionParams != nullptr) {
+                if (cbid == CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel) {
+                    meta.hasDetails = true;
+                    const auto *params = (cudaLaunchKernel_v7000_params *) (cbInfo->
+                    functionParams);
 
-                    int maxActiveBlocks = 0;
-                    int blockSize = meta.blockX * meta.blockY * meta.blockZ;
+                    meta.gridX = params->gridDim.x;
+                    meta.gridY = params->gridDim.y;
+                    meta.gridZ = params->gridDim.z;
+                    meta.blockX = params->blockDim.x;
+                    meta.blockY = params->blockDim.y;
+                    meta.blockZ = params->blockDim.z;
+                    meta.dynShared = static_cast<int>(params->sharedMem);
 
-                    // Ask the driver: "Given this function pointer and block size, how many blocks fit?"
-                    cudaError_t err = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-                        &maxActiveBlocks,
-                        params->func, // The kernel function pointer
-                        blockSize,
-                        meta.dynShared
-                    );
-
-                    if (err == cudaSuccess) {
-                        int maxThreadsPerSM = GetMaxThreadsPerSM(deviceId);
-
-                        // Theoretical Occupancy = (Active Warps) / (Max Warps)
-                        if (maxThreadsPerSM > 0) {
-                            meta.occupancy = static_cast<float>(maxActiveBlocks * blockSize) / static_cast<float>(maxThreadsPerSM);
-                        }
-                        meta.maxActiveBlocks = maxActiveBlocks;
-
-                        GFL_LOG_DEBUG("Occupancy: ", meta.occupancy * 100.0f, "% (", maxActiveBlocks, " blocks/SM)");
-                    } else {
-                        meta.occupancy = 0.0f;
-                        meta.maxActiveBlocks = 0;
-                    }
+                    CalculateOccupancy(meta, params->func);
                 }
             }
 
