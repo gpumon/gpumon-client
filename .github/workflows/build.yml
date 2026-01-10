@@ -74,8 +74,8 @@ jobs:
             -DBUILD_PYTHON=OFF \
             -DBUILD_TESTING=ON
           
-          cmake --build build_tests --target gpufl_tests
-          ctest --test-dir build_tests --output-on-failure
+          cmake --build build_tests --target gpufl_tests --config Debug
+          ctest --test-dir build_tests --output-on-failure -C Debug
 
       - name: Run Python Unit Tests
         shell: bash
