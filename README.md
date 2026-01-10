@@ -18,7 +18,59 @@ Unlike traditional profilers (Nsight) that stop the world, GPUFlight is designed
 
 ## 📦 Integration
 
+### C++ Integration
 `gpufl` is designed to be pulled in via CMake `FetchContent`.
+
+### Python Integration
+Install the library with all analysis and visualization dependencies:
+```bash
+pip install ".[numba,viz,analyzer]"
+```
+
+---
+
+## 📊 Python Analysis & Visualization
+
+The `gpufl` Python library provides a powerful suite for analyzing logs produced by the C++ library.
+
+### 1. Analyzer (CLI Dashboard)
+Use the `analyzer` module to get an "Executive Summary" of your GPU performance directly in the terminal.
+
+```python
+from gpufl.analyzer import GpuFlightSession
+
+# Load a session (automatically picks up .kernel, .scope, and .system logs)
+session = GpuFlightSession("./logs", log_prefix="stress")
+
+# 1. Executive Summary: Duration, Utilization, Peak VRAM
+session.print_summary()
+
+# 2. Hierarchical Scope Analysis: Time spent in GFL_SCOPE blocks
+session.inspect_scopes()
+
+# 3. Kernel Hotspots: Top expensive kernels with Stack Trace visualization
+session.inspect_hotspots(top_n=5, max_stack_depth=5)
+```
+
+### 2. Visualization (Timeline)
+The `viz` module provides interactive `matplotlib` plots to correlate kernel execution with system metrics.
+
+```python
+import gpufl.viz as viz
+
+# Load all logs in a directory
+viz.init("./logs/*.log")
+
+# Show interactive timeline with:
+# - GPU/Host utilization & VRAM
+# - Kernel occupancy markers
+# - Hover-able kernel names (to reduce clutter)
+viz.show()
+```
+
+---
+
+## 🛠️ Usage (C++)
 
 ### CMakeLists.txt
 
