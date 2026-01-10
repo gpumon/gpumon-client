@@ -102,4 +102,6 @@ endif()
 
 # 7. Register with CTest
 include(GoogleTest)
-gtest_discover_tests(gpufl_tests)
+gtest_discover_tests(gpufl_tests
+    DISCOVERY_TIMEOUT 20
+)

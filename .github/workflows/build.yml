@@ -47,6 +47,8 @@ jobs:
           echo "CUDAToolkit_ROOT=${CUDA_PATH}" >> $GITHUB_ENV
           if [ "${{ runner.os }}" == "Windows" ]; then
             echo "${CUDA_PATH}/bin" >> $GITHUB_PATH
+            echo "${CUDA_PATH}/extras/CUPTI/lib64" >> $GITHUB_PATH
+            echo "C:/Program Files/NVIDIA Corporation/NVSMI" >> $GITHUB_PATH
           fi
 
       - name: Install system dependencies
@@ -67,11 +69,6 @@ jobs:
       - name: Run C++ Unit Tests
         shell: bash
         run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-             export PATH="$PATH:$CUDA_PATH/extras/CUPTI/lib64"
-             echo "Added CUPTI to PATH: $CUDA_PATH/extras/CUPTI/lib64"
-          fi
-          
           cmake -B build_tests -S . \
             -DGPUFL_ENABLE_NVIDIA=ON \
             -DBUILD_PYTHON=OFF \
