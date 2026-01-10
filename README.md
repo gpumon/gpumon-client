@@ -93,3 +93,47 @@ target_link_libraries(my_app PRIVATE gpufl CUDA::cudart CUDA::cupti)
 
 # Ensure DLLs are copied on Windows (Optional but recommended)
 # See 'Troubleshooting' section for post-build commands.
+```
+
+---
+
+## 🧪 Testing
+
+The project includes a suite of unit tests using GoogleTest. These tests are hardware-aware and will automatically skip NVIDIA-specific tests if a compatible GPU or driver is not detected.
+
+### Running Tests (C++)
+The C++ tests use GoogleTest and are hardware-aware.
+
+1.  **Build the tests**:
+    ```bash
+    cmake --build cmake-build-debug --target gpufl_tests
+    ```
+
+2.  **Run via CTest**:
+    ```bash
+    ctest --test-dir cmake-build-debug --output-on-failure
+    ```
+
+3.  **Run directly**:
+    ```bash
+    ./cmake-build-debug/tests/gpufl_tests.exe
+    ```
+
+### Running Tests (Python)
+The Python tests use `pytest` and verify the analyzer and visualization logic using mocked data.
+
+1.  **Install pytest**:
+    ```bash
+    pip install pytest
+    ```
+
+2.  **Run tests**:
+    ```bash
+    # Ensure python directory is in PYTHONPATH
+    export PYTHONPATH=$PYTHONPATH:$(pwd)/python
+    pytest tests/python
+    ```
+
+### Running Tests (CLion)
+- The `gpufl_tests` target will appear in your run configurations.
+- You can run individual tests or the entire suite using the built-in GoogleTest runner.

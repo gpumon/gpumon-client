@@ -30,7 +30,7 @@
                 symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
                 bool first = true;
-                for (int i = frames - 1; i >= skipFrames; --i) {
+                for (int i = static_cast<int>(frames) - 1; i >= skipFrames; --i) {
                     if (SymFromAddr(process, (DWORD64)(stack[i]), 0, symbol)) {
                         std::string name = symbol->Name;
 

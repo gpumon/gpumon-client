@@ -38,8 +38,10 @@ analyzer = [
 ]
 
 [tool.scikit-build]
-cmake.args = ["-DCMAKE_BUILD_TYPE=Release"]
-cmake.define = { BUILD_PYTHON = "ON" }
+cmake.args = ["-DCMAKE_BUILD_TYPE=Release", "--log-level=STATUS"]
+cmake.define = { BUILD_PYTHON = "ON", BUILD_GPUFL_EXAMPLE = "OFF" }
 cmake.build-type = "Release"
+cmake.verbose = true
+logging.level = "INFO"
 ninja.make-fallback = true
 wheel.packages = ["python/gpufl"]

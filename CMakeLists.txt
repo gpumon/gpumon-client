@@ -6,6 +6,13 @@ project(gpufl_client
     DESCRIPTION "Header-only GPU monitoring client library"
 )
 
+# -----------------------
+# CUDA Architectures (CI Friendly)
+# -----------------------
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES "all-major")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -56,6 +63,17 @@ set(GPUFL_HAS_ROCM 0)
 # -----------------------
 if(GPUFL_ENABLE_NVIDIA)
     target_compile_definitions(gpufl PUBLIC GPUFL_ENABLE_NVIDIA=1)
+else()
+    target_compile_definitions(gpufl PUBLIC GPUFL_ENABLE_NVIDIA=0)
+endif()
+
+if(GPUFL_ENABLE_AMD)
+    target_compile_definitions(gpufl PUBLIC GPUFL_ENABLE_AMD=1)
+else()
+    target_compile_definitions(gpufl PUBLIC GPUFL_ENABLE_AMD=0)
+endif()
+
+if(GPUFL_ENABLE_NVIDIA)
     #
     # CUDA capability: only if CUDA toolkit is available
     #
@@ -70,7 +88,6 @@ if(GPUFL_ENABLE_NVIDIA)
                 include/gpufl/backends/nvidia/cuda_collector.cpp
                 include/gpufl/cuda/monitor.cpp
                 include/gpufl/cuda/cupti_backend.cpp)
-            target_compile_definitions(gpufl PUBLIC GPUFL_HAS_CUDA=1)
             target_link_libraries(gpufl PRIVATE CUDA::cudart CUDA::cuda_driver)
 
             # --------------------------------------------------------
@@ -78,24 +95,24 @@ if(GPUFL_ENABLE_NVIDIA)
             # --------------------------------------------------------
             if (TARGET CUDA::cupti)
                 target_link_libraries(gpufl PRIVATE CUDA::cupti)
-                target_compile_definitions(gpufl PUBLIC GPUFL_HAS_CUPTI=1)
+                set(GPUFL_HAS_CUPTI 1)
                 message(STATUS "Found CUPTI via CUDAToolkit target")
             else()
                 # Fallback: Manual search if the target is missing
                 find_library(CUPTI_LIBRARY NAMES cupti
-                    HINTS "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/lib64"
-                    "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/lib"
+                    HINTS "${CUDAToolkit_ROOT}/extras/CUPTI/lib64"
+                    "${CUDAToolkit_ROOT}/extras/CUPTI/lib"
                     "$ENV{CUDA_PATH}/extras/CUPTI/lib64"
                 )
                 find_path(CUPTI_INCLUDE_DIR NAMES cupti.h
-                    HINTS "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/include"
+                    HINTS "${CUDAToolkit_ROOT}/extras/CUPTI/include"
                     "$ENV{CUDA_PATH}/extras/CUPTI/include"
                 )
 
                 if(CUPTI_LIBRARY AND CUPTI_INCLUDE_DIR)
                     target_link_libraries(gpufl PRIVATE ${CUPTI_LIBRARY})
                     target_include_directories(gpufl PRIVATE ${CUPTI_INCLUDE_DIR})
-                    target_compile_definitions(gpufl PUBLIC GPUFL_HAS_CUPTI=1)
+                    set(GPUFL_HAS_CUPTI 1)
                     message(STATUS "Found CUPTI manually: ${CUPTI_LIBRARY}")
                 endif()
             endif()
@@ -118,7 +135,6 @@ if(GPUFL_ENABLE_NVIDIA)
 
         if(NVML_DLL_DIR)
             set(GPUFL_HAS_NVML 1)
-            target_compile_definitions(gpufl PUBLIC GPUFL_HAS_NVML=1)
 
             # If you still want link-time import lib, only do it when DLL exists:
             find_library(NVML_LIBRARY NAMES nvml nvidia-ml
@@ -134,10 +150,20 @@ if(GPUFL_ENABLE_NVIDIA)
 
         if(NVML_LIBRARY)
             set(GPUFL_HAS_NVML 1)
-            target_compile_definitions(gpufl PUBLIC GPUFL_HAS_NVML=1)
             target_link_libraries(gpufl PRIVATE ${NVML_LIBRARY})
         endif()
     endif()
+
+    if(WIN32)
+        target_link_libraries(gpufl PRIVATE dbghelp)
+    endif()
+
+    # Apply definitions to public interface so tests inherit them
+    target_compile_definitions(gpufl PUBLIC 
+        GPUFL_HAS_CUDA=${GPUFL_HAS_CUDA}
+        GPUFL_HAS_NVML=${GPUFL_HAS_NVML}
+        GPUFL_HAS_CUPTI=${GPUFL_HAS_CUPTI}
+    )
 
     #
     # Only compile NVML collector if NVML is actually available
@@ -153,6 +179,15 @@ if(GPUFL_ENABLE_NVIDIA)
     # -----------------------
     if(BUILD_GPUFL_EXAMPLE AND GPUFL_HAS_CUDA AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         add_subdirectory(example/cuda)
+    endif()
+
+    # -----------------------
+    # Unit Tests
+    # -----------------------
+    option(BUILD_TESTING "Build the testing tree." ON)
+    if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR AND BUILD_TESTING)
+        enable_testing()
+        add_subdirectory(tests)
     endif()
 endif()
 
@@ -173,13 +208,16 @@ if(GPUFL_ENABLE_AMD)
 endif()
 
 if(BUILD_PYTHON)
-    include(FetchContent)
-    FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.13
-    )
-    FetchContent_MakeAvailable(pybind11)
+    find_package(pybind11 QUIET)
+    if(NOT pybind11_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG v2.13
+        )
+        FetchContent_MakeAvailable(pybind11)
+    endif()
 
     pybind11_add_module(_gpufl_client python/bindings.cpp)
 
