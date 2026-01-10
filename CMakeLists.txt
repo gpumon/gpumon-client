@@ -100,12 +100,12 @@ if(GPUFL_ENABLE_NVIDIA)
             else()
                 # Fallback: Manual search if the target is missing
                 find_library(CUPTI_LIBRARY NAMES cupti
-                    HINTS "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/lib64"
-                    "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/lib"
+                    HINTS "${CUDAToolkit_ROOT}/extras/CUPTI/lib64"
+                    "${CUDAToolkit_ROOT}/extras/CUPTI/lib"
                     "$ENV{CUDA_PATH}/extras/CUPTI/lib64"
                 )
                 find_path(CUPTI_INCLUDE_DIR NAMES cupti.h
-                    HINTS "${CUDAToolkit_LIBRARY_ROOT}/extras/CUPTI/include"
+                    HINTS "${CUDAToolkit_ROOT}/extras/CUPTI/include"
                     "$ENV{CUDA_PATH}/extras/CUPTI/include"
                 )
 
@@ -152,6 +152,10 @@ if(GPUFL_ENABLE_NVIDIA)
             set(GPUFL_HAS_NVML 1)
             target_link_libraries(gpufl PRIVATE ${NVML_LIBRARY})
         endif()
+    endif()
+
+    if(WIN32)
+        target_link_libraries(gpufl PRIVATE dbghelp)
     endif()
 
     # Apply definitions to public interface so tests inherit them
@@ -203,13 +207,16 @@ if(GPUFL_ENABLE_AMD)
 endif()
 
 if(BUILD_PYTHON)
-    include(FetchContent)
-    FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.13
-    )
-    FetchContent_MakeAvailable(pybind11)
+    find_package(pybind11 QUIET)
+    if(NOT pybind11_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG v2.13
+        )
+        FetchContent_MakeAvailable(pybind11)
+    endif()
 
     pybind11_add_module(_gpufl_client python/bindings.cpp)
 
