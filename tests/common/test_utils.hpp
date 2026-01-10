@@ -1,9 +1,13 @@
 #pragma once
 #include <gtest/gtest.h>
+
+#if GPUFL_HAS_CUDA
 #include <cuda_runtime.h>
+#endif
 
 // Helper to check if we are on an NVIDIA machine
 inline bool isNvidiaGpuAvailable() {
+#if GPUFL_HAS_CUDA
     int deviceCount = 0;
     // We use cudaGetDeviceCount because it's lightweight and standard
     cudaError_t error = cudaGetDeviceCount(&deviceCount);
@@ -15,6 +19,9 @@ inline bool isNvidiaGpuAvailable() {
         return false; 
     }
     return true;
+#else
+    return false;
+#endif
 }
 
 // Macro to skip test if GPU is missing

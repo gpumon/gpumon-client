@@ -2,6 +2,8 @@
 #include "common/test_utils.hpp"
 #include "gpufl/backends/nvidia/nvml_collector.hpp"
 
+#if GPUFL_ENABLE_NVIDIA && GPUFL_HAS_NVML
+
 class NvmlCollectorTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -47,3 +49,5 @@ TEST_F(NvmlCollectorTest, SampleDynamicMetrics) {
         EXPECT_LT(sample.tempC, 120); // Sanity check
     }
 }
+
+#endif

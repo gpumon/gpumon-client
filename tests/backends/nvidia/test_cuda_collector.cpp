@@ -2,6 +2,8 @@
 #include "common/test_utils.hpp"
 #include "gpufl/backends/nvidia/cuda_collector.hpp"
 
+#if GPUFL_ENABLE_NVIDIA && GPUFL_HAS_CUDA
+
 class CudaCollectorTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -29,3 +31,5 @@ TEST_F(CudaCollectorTest, SampleStaticDeviceInfo) {
         EXPECT_GT(info.regsPerBlock, 0);
     }
 }
+
+#endif

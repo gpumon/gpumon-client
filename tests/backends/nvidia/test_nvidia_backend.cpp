@@ -2,6 +2,8 @@
 #include "common/test_utils.hpp"
 #include "gpufl/cuda/cupti_backend.hpp"
 
+#if GPUFL_ENABLE_NVIDIA && GPUFL_HAS_CUPTI
+
 class CuptiBackendTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -69,3 +71,5 @@ TEST_F(CuptiBackendTest, ScopeCallbacks) {
     backend.stop();
     backend.shutdown();
 }
+
+#endif
